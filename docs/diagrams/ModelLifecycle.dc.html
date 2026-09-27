@@ -43,7 +43,7 @@ h1{font-family:'Newsreader',Georgia,serif;font-weight:500;font-size:34px;margin:
 
 <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px">
 <div class="box"><b>Who may do what</b>register, validate, transition: operator or admin. Into production, or out of it: admin only.</div>
-<div class="box"><b>Denials are audited</b>Each refusal writes a deny entry with a reason: <span class="m">not_validated</span>, <span class="m">not_approver</span>, <span class="m">policy_denied</span>, <span class="m">not_found</span>.</div>
+<div class="box"><b>Denials are audited</b>Each refusal writes a deny entry with a reason: <span class="m">not_validated</span>, <span class="m">not_approver</span>, <span class="m">policy_denied</span>, <span class="m">not_found</span>. A transition to production or a rollback is also evaluated by the active policy under <span class="m">stage.production</span>; no active policy denies.</div>
 <div class="box"><b>Dataset link</b>A registration can name a <span class="m">dataset_version</span>. It must exist in the DatasetRegistry, otherwise 404.</div>
 </div>
 

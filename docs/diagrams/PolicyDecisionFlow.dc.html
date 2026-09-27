@@ -57,7 +57,7 @@ h1{font-family:'Newsreader',Georgia,serif;font-weight:500;font-size:34px;margin:
 
 <div class="box" style="background:#fff8f0;border-color:#d1734f">
 <b>What changed, and what has not</b>
-The old adapter translated only role_in rules, treated "*" as a literal, and disagreed with the layer on 3 of 8 demo requests. Scope now lives in the layer and the oracle covers every kind. Not yet done: policy does not gate model transitions in the running service (default-off wiring is planned).
+The old adapter translated only role_in rules, treated "*" as a literal, and disagreed with the layer on 3 of 8 demo requests. Scope now lives in the layer and the oracle covers every kind. Production transitions and rollback are now gated by the active policy (on by default; no active policy denies). Policy versions are not yet persisted.
 </div>
 </div>
 </x-dc>

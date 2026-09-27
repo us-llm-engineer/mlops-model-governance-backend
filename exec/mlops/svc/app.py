@@ -29,7 +29,7 @@ from mlops.kernel import (
 from mlops.lineage import LineageGraph
 from mlops.model_stages import ModelRegistry, Stage
 from mlops.policy_engine import PolicyBundle, Rule
-from mlops.policy_store import PolicyStore
+from mlops.policy_store import PolicyStore, PolicyStoreGate
 from mlops.svc.deps import Principal, get_principal, require_role
 from mlops.svc.errors import install_error_handlers
 from mlops.svc.idempotency import IdempotencyStore
@@ -157,6 +157,8 @@ class TransitionModelRequest(BaseModel):
 
 
 class RollbackRequest(BaseModel):
+    context: Optional[dict] = None
+
     model_config = {"extra": "forbid"}
 
 
@@ -214,6 +216,22 @@ class DriftCheckRequest(BaseModel):
     name: Optional[StrictStr] = Field(default=None, min_length=1, max_length=256)
 
     model_config = {"extra": "forbid", "allow_inf_nan": False}
+
+
+def _policy_context(client_context: Optional[dict], principal: Any, model_id: str, to_stage: str) -> dict:
+    """Policy context for a transition: client-supplied keys, then the server's own facts.
+
+    role, actor, resource and to_stage always come from the authenticated request, so a
+    body cannot claim another role or resource. Metric-style keys (accuracy, ...) are
+    the client's and are self-attested.
+    """
+    return {
+        **(client_context or {}),
+        "role": principal.role,
+        "actor": principal.name,
+        "resource": model_id,
+        "to_stage": to_stage,
+    }
 
 
 def _parse(model_cls: type, raw: dict) -> Any:
@@ -740,7 +758,7 @@ def create_app(
                 model_id=model_id,
                 version_id=version_id,
                 to_stage=to_stage_enum,
-                context=req.context,
+                context=_policy_context(req.context, principal, model_id, req.to_stage),
             ))
 
         return await _keyed(request, principal, f"/v1/models/{model_id}/versions/{version_id}/transition",
@@ -755,10 +773,14 @@ def create_app(
         """Rollback to previous production version."""
         _check_key(request)
         body = await parse_json_body(request)
-        _parse(RollbackRequest, body)
+        req = _parse(RollbackRequest, body)
 
         def work():
-            return _mirror_record(state.registry.rollback(actor=principal.name, model_id=model_id))
+            return _mirror_record(state.registry.rollback(
+                actor=principal.name,
+                model_id=model_id,
+                context=_policy_context(req.context, principal, model_id, "production"),
+            ))
 
         return await _keyed(request, principal, f"/v1/models/{model_id}/rollback", body, work)
 
@@ -1059,7 +1081,11 @@ def build_default_wiring(settings: Settings):
 
     policy_store = PolicyStore(audit=audit, clock=clock)
     dataset_registry = DatasetRegistry(audit=audit)
-    registry = ModelRegistry(audit=audit, datasets=dataset_registry)
+    registry = ModelRegistry(
+        audit=audit,
+        datasets=dataset_registry,
+        decision_point=PolicyStoreGate(policy_store) if settings.policy_enforce_transitions else None,
+    )
     incidents_mgr = IncidentManager(audit, clock)
     telemetry = Telemetry()
     drift_monitors: dict = {}

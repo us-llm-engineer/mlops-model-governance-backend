@@ -49,9 +49,8 @@ re-expresses the contract in casbin's matcher language and requires the raw laye
 on 10,800 seeded random decisions (3 seeds x 3,600) and on each rule's verdict, and shows the comparison detects
 three deliberately broken engines.
 
-Not yet done: policy does not gate model transitions in the running service (the registry is
-built without a decision point). See the contract's Enforcement section for the planned,
-default-off setting.
+The active policy gates production transitions and rollback in the running service (on by
+default; with no active policy they are denied). See the contract's Enforcement section.
 
 ## Status and known gaps
 

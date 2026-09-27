@@ -44,9 +44,16 @@ scope that **covers** the old scope (widening or equal is fine; narrowing is loo
 Decision log is bounded at 10,000; replay never writes to the audit chain.
 
 ## Enforcement (model transitions)
-Off by default. With `MLOPS_POLICY_ENFORCE_TRANSITIONS=true` the server passes the active
-policy to `ModelRegistry`, so a transition to `production` (and a rollback) is evaluated under
-action `stage.production`. No active policy => deny (fail closed). The server sets `role`,
-`actor`, `resource` (the model id) and `to_stage` itself and they override any client-sent
-`context` key of the same name. Metric-style keys (`accuracy`, ...) come from the client
-`context` and are **self-attested**: the gate does not verify them.
+On by default (`policy_enforce_transitions`; `MLOPS_POLICY_ENFORCE_TRANSITIONS=false` turns it off).
+`build_default_wiring` gives `ModelRegistry` the active policy as its decision point
+(`PolicyStoreGate`), so a transition to `production` and a rollback are evaluated under action
+`stage.production`; a denial is HTTP 403 `policy_denied`, the stage does not change, and the
+decision is audited. No active policy => denied (fail closed): a fresh deployment must publish and
+activate a policy before anything can be promoted. Transitions to `staging`/`archived` are not gated.
+
+The server sets `role`, `actor`, `resource` (the model id) and `to_stage` from the authenticated
+request and they override any client-sent `context` key of the same name. Other keys
+(`accuracy`, ...) come from the client `context` and are **self-attested**: the gate does not
+verify them. The rollback route accepts an optional `context` for the same reason; a metric rule
+scoped to `stage.production` therefore also applies to rollback unless the caller supplies the
+metric.

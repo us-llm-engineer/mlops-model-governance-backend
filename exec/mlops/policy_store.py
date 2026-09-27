@@ -26,6 +26,7 @@ from .policy_engine import PolicyBundle, PolicyDecision, PolicyDecisionPoint, sc
 __all__ = [
     "is_stricter_or_equal",
     "PolicyStore",
+    "PolicyStoreGate",
 ]
 
 
@@ -765,3 +766,22 @@ class PolicyStore:
             })
 
         return result
+
+
+class PolicyStoreGate:
+    """Adapts a PolicyStore to the decision-point interface ModelRegistry calls.
+
+    enforce() evaluates the ACTIVE bundle (and logs/audits the decision through the
+    store), raising PolicyDenied when it denies. No active bundle also raises
+    PolicyDenied (fail-closed).
+    """
+
+    def __init__(self, store: PolicyStore) -> None:
+        self.store = store
+        self.audit = store.audit
+
+    def enforce(self, action: str, context: Dict[str, Any], actor: str = "system") -> PolicyDecision:
+        decision = self.store.decide(action, context, actor=actor)
+        if not decision.allow:
+            raise PolicyDenied(f"Policy denied {action}: {'; '.join(decision.reasons)}")
+        return decision

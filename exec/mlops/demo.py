@@ -134,6 +134,26 @@ def main() -> int:
     ).json()
     _show("viewer deploying to dev (rule out of scope)", {"allow": elsewhere.get("allow"), "reasons": elsewhere.get("reasons")})
 
+    # The active policy also gates production transitions (on by default): tighten it with a
+    # metric rule scoped to stage.production, then try to promote the validated model.
+    client.post("/v1/models/fraud-detector/versions/1/validate",
+                json={"evidence": {"auc": 0.97}}, headers=ADMIN)
+    v2 = client.post(
+        "/v1/policy/publish",
+        json={"name": "deploy-gate", "version": 2, "rules": policy_rules + [
+            {"id": "min-accuracy", "version": 1, "kind": "min_metric", "severity": "block",
+             "params": {"metric": "accuracy", "min": 0.9, "action": "stage.production"}}]},
+        headers=ADMIN,
+    ).json()
+    client.post(f"/v1/policy/{v2['version']}/activate", json={"human_approved_by": "root"}, headers=ADMIN)
+    promote = "/v1/models/fraud-detector/versions/1/transition"
+    blocked = client.post(promote, json={"to_stage": "production", "context": {"accuracy": 0.5}}, headers=ADMIN)
+    _show("promote to production with accuracy 0.5 (policy denies)",
+          {"status": blocked.status_code, "body": blocked.json()})
+    allowed = client.post(promote, json={"to_stage": "production", "context": {"accuracy": 0.95}}, headers=ADMIN)
+    _show("promote to production with accuracy 0.95 (policy allows)",
+          {"status": allowed.status_code, "stage": allowed.json().get("stage")})
+
     # ------------------------------------------------------------------ 3. Manifest lint (local, no server round trip)
     _hr("3. Lint a raw Kubernetes manifest (manifest_io.load_and_lint, local call)")
     from mlops.svc.manifest_io import load_and_lint

@@ -65,6 +65,11 @@ class Settings(BaseSettings):
     # Plain bool (not StrictBool): pydantic-settings' own env-string parsing ("true"/"false")
     # needs to run for MLOPS_METRICS_PUBLIC, which strict mode would block.
     metrics_public: bool = False
+    # On by default: build_default_wiring gives ModelRegistry the active policy as its
+    # decision point, so a transition to production (and a rollback) is denied unless the
+    # active policy allows it; with no active policy it is denied (fail-closed). Set
+    # MLOPS_POLICY_ENFORCE_TRANSITIONS=false to restore ungated transitions.
+    policy_enforce_transitions: bool = True
     # Periodic worker cadences used by build_default_wiring() (svc/app.py) when the
     # service actually runs -- plain float (not StrictFloat) so the manual env-var
     # whitelist below can pre-convert an MLOPS_* string with ordinary float(), the
@@ -220,6 +225,14 @@ def load_settings(
                     env_config["metrics_public"] = False
                 else:
                     raise ValidationFailed("invalid settings: metrics_public (value_error)")
+            elif field_name == "policy_enforce_transitions":
+                lowered = value.strip().lower()
+                if lowered in ("true", "1", "yes"):
+                    env_config["policy_enforce_transitions"] = True
+                elif lowered in ("false", "0", "no"):
+                    env_config["policy_enforce_transitions"] = False
+                else:
+                    raise ValidationFailed("invalid settings: policy_enforce_transitions (value_error)")
             elif field_name == "tokens":
                 try:
                     env_config["tokens"] = json.loads(value)
