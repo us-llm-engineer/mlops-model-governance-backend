@@ -1,9 +1,8 @@
 # System design diagrams
 
 Twelve boards, one file each (`*.dc.html`), laid out by `canvas.json`. They were authored as a
-design canvas and published as a private claude.ai artifact; these are the sources. The
-`support.js` each page loads is supplied by that canvas runtime and is not stored here, so
-open them through the canvas, not directly.
+design canvas; these are the sources. The `support.js` each page loads is supplied by that
+canvas runtime and is not stored here, so open them through the canvas, not directly.
 
 | # | File | Shows |
 |---|---|---|

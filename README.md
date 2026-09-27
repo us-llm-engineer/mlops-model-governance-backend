@@ -31,8 +31,7 @@ self-validates an SBOM, and queries lineage. It uses the same `build_default_wir
 | `exec/mlops/interop/` | MLflow bridge (opt-in mirror) |
 | `exec/mlops/legacy/` | Project 1 modules kept as a stdlib-only regression baseline, isolated from the live service |
 | `tests/` | Test suites; `tests/oracle/` holds the casbin reference used only by tests |
-| `docs/` | `POLICY-CONTRACT.md`, `TECHNICAL-REQUIREMENTS.md`, `TEST-REPORT.md`, `diagrams/` |
-| `STATE.md`, `REPORT.md`, `plans/`, `review/` | Working records from the build |
+| `docs/` | `POLICY-CONTRACT.md`, `TECHNICAL-REQUIREMENTS.md`, `diagrams/` |
 
 ## Policy layer
 
@@ -54,9 +53,7 @@ default; with no active policy they are denied). See the contract's Enforcement 
 
 ## Status and known gaps
 
-- Framework-share gate: 36.5% measured (`python3 log/framework_share.py`) against a 45% target; `STATE.md` records the gate as blocking release.
 - The drift worker re-checks a fixed window; there is no ingestion endpoint yet.
 - Policy versions persist across restarts; incidents (`OpsRepo.upsert_incident` is never called) and drift baselines (never reloaded) do not. The policy decision log and rollback target are in memory.
 - The lineage graph is in memory; the MLflow mirror swallows errors by design (best effort).
-- `docs/TEST-REPORT.md` and `REPORT.md` predate the connect-pipeline and policy work and are not regenerated.
 - Diagrams: [docs/diagrams/](docs/diagrams/) (12 boards, source files plus a README index).
