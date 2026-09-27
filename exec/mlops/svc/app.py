@@ -1079,7 +1079,21 @@ def build_default_wiring(settings: Settings):
     else:
         audit = ChainedAuditStore(secret)
 
-    policy_store = PolicyStore(audit=audit, clock=clock)
+    repo = None
+    ops_repo = None
+    if has_real_db:
+        # SqlRepo (model/dataset mirror, used by state.repo in app.py's
+        # _mirror_record/get_model) and OpsRepo (policy-version/incident/drift
+        # baseline CRUD) are two query interfaces over the SAME Alembic-migrated
+        # tables (mlops.sqldb.Base), so one migrated `sqlite:///` URL backs both --
+        # migrate it once here, before anything that reads it (PolicyStore reloads
+        # its versions from OpsRepo when it is constructed).
+        sql_url = f"sqlite:///{settings.db_path}"
+        sqldb_upgrade(sql_url, "head")
+        repo = SqlRepo(sql_url)
+        ops_repo = OpsRepo(sql_url)
+
+    policy_store = PolicyStore(audit=audit, clock=clock, repo=ops_repo)
     dataset_registry = DatasetRegistry(audit=audit)
     registry = ModelRegistry(
         audit=audit,
@@ -1107,18 +1121,8 @@ def build_default_wiring(settings: Settings):
         ),
     ]
 
-    repo = None
-    ops_repo = None
     if has_real_db:
-        # SqlRepo (model/dataset mirror, used by state.repo in app.py's
-        # _mirror_record/get_model) and OpsRepo (policy-version/incident/drift
-        # baseline CRUD, used by the drift worker below) are two query
-        # interfaces over the SAME Alembic-migrated tables (mlops.sqldb.Base),
-        # so one migrated `sqlite:///` URL backs both -- migrate it once here.
-        sql_url = f"sqlite:///{settings.db_path}"
-        sqldb_upgrade(sql_url, "head")
-        repo = SqlRepo(sql_url)
-        baseline_repo = ops_repo = OpsRepo(sql_url)
+        baseline_repo = ops_repo  # the OpsRepo built above: drift baselines live beside policy versions
         workers.append(
             PeriodicWorker(
                 "drift-evaluation",

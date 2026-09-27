@@ -42,6 +42,12 @@ new rule exists (or the old was `warn`), has the same kind, is not downgraded `b
 has a higher-or-equal `min` / lower-or-equal `max`, equal params for the other kinds, and a
 scope that **covers** the old scope (widening or equal is fine; narrowing is loosening).
 Decision log is bounded at 10,000; replay never writes to the audit chain.
+With a real database, every publish and activation is written to the ops database before the
+in-memory state changes (a failed write changes nothing), and versions, notes, the version
+counter and the active version are reloaded on start; a stored row that does not parse or
+validate stops startup with an integrity error. The decision log and the rollback target
+are not stored, so a rollback straight after a restart has nothing to roll back to. With
+`db_path=":memory:"` the store stays in memory.
 
 ## Enforcement (model transitions)
 On by default (`policy_enforce_transitions`; `MLOPS_POLICY_ENFORCE_TRANSITIONS=false` turns it off).

@@ -52,8 +52,8 @@ h1{font-family:'Newsreader',Georgia,serif;font-weight:500;font-size:34px;margin:
 
 <div class="box"><b>Database branch</b>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px">
-<div><span class="m">db_path is a real file</span><br>DurableAuditStore, then <span class="m">sqldb.upgrade(sqlite:///path, "head")</span>, then SqlRepo and OpsRepo on the same migrated tables, plus the drift worker.</div>
-<div><span class="m">db_path is :memory:</span><br>ChainedAuditStore, no repos, no drift worker. Everything else still runs.</div>
+<div><span class="m">db_path is a real file</span><br>DurableAuditStore, then <span class="m">sqldb.upgrade(sqlite:///path, "head")</span>, then SqlRepo and OpsRepo on the same migrated tables. PolicyStore is built on OpsRepo and reloads its versions; the drift worker is added. ModelRegistry gets the active policy as its decision point.</div>
+<div><span class="m">db_path is :memory:</span><br>ChainedAuditStore, no repos, in-memory policy store, no drift worker. Everything else still runs.</div>
 </div></div>
 
 <div class="box"><b>Workers</b>

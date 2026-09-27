@@ -8,6 +8,7 @@ human approval. All decisions are audited and immutable copies are returned.
 from __future__ import annotations
 
 import copy
+import json
 import threading
 from collections import deque
 from dataclasses import dataclass
@@ -16,6 +17,7 @@ from typing import Any, Dict, List, Optional, Tuple
 from .kernel import (
     Clock,
     Conflict,
+    IntegrityError,
     NotFound,
     PolicyDenied,
     SystemClock,
@@ -355,6 +357,9 @@ class PolicyStore:
 
     audit: Any  # ChainedAuditStore
     clock: Optional[Clock] = None
+    # Optional durable store (an OpsRepo): every publish/activate is written through BEFORE the
+    # in-memory state changes, and versions plus the active one are reloaded on construction.
+    repo: Any = None
 
     def __post_init__(self):
         """Initialize mutable state after dataclass construction."""
@@ -368,6 +373,43 @@ class PolicyStore:
         self._version_counter = 0
         self._lock = threading.Lock()
         self._decision_log: deque[Dict[str, Any]] = deque(maxlen=10000)
+        if self.repo is not None:
+            self._reload()
+
+    def _reload(self) -> None:
+        """Rebuild versions, notes, timestamps, the counter and the active version from the repo.
+
+        _previous_active is not stored, so a rollback straight after a restart has nothing to
+        roll back to. A row that does not parse or validate raises IntegrityError: silently
+        starting empty would hide a corrupted policy store.
+        """
+        try:
+            rows = self.repo.list_policy_versions()
+            for row in rows:
+                version = row["version"]
+                bundle = PolicyBundle.from_dict(json.loads(row["bundle_json"]))
+                _validate_rules(bundle.rules)
+                self._bundles[version] = bundle
+                self._notes[version] = row["note"]
+                self._published_ts[version] = row["published_ts"]
+                if row["active"]:
+                    self._active_version = version
+            if rows:
+                self._version_counter = max(row["version"] for row in rows)
+        except Exception as e:
+            raise IntegrityError(f"policy store reload failed: {type(e).__name__}: {e}") from e
+
+    def _persist(self, version: int, bundle: PolicyBundle, note: str, ts: float, active: bool) -> None:
+        if self.repo is None:
+            return
+        self.repo.upsert_policy_version({
+            "version": version,
+            "name": bundle.name,
+            "bundle_json": json.dumps(bundle.to_dict(), sort_keys=True),
+            "note": note,
+            "published_ts": ts,
+            "active": active,
+        })
 
     def publish(
         self,
@@ -405,13 +447,15 @@ class PolicyStore:
 
         # Increment version and store a deep copy
         with self._lock:
-            self._version_counter += 1
-            version = self._version_counter
+            version = self._version_counter + 1
             # Store a deep copy to prevent caller mutations
             bundle_copy = copy.deepcopy(bundle)
+            ts = self.clock.now()
+            self._persist(version, bundle_copy, note, ts, active=False)  # raises -> nothing changed
+            self._version_counter = version
             self._bundles[version] = bundle_copy
             self._notes[version] = note
-            self._published_ts[version] = self.clock.now()
+            self._published_ts[version] = ts
 
         # Audit the publish
         self.audit.append(
@@ -478,6 +522,9 @@ class PolicyStore:
                     f"Version {version} is looser than {previous}; "
                     "human approval required"
                 )
+
+            self._persist(version, self._bundles[version], self._notes.get(version, ""),
+                          self._published_ts.get(version, 0.0), active=True)
 
             # Atomically swap the active version
             self._previous_active = self._active_version

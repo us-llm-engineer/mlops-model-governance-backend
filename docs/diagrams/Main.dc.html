@@ -72,7 +72,7 @@ h1{font-family:'Newsreader',Georgia,serif;font-weight:500;font-size:34px;margin:
 
 <div style="display:flex;gap:12px;align-items:stretch">
 <div class="lab">Storage</div>
-<div class="box dim"><b>Ops database</b>Alembic-migrated SQLite: SqlRepo (models, datasets) + OpsRepo (policy, incidents, drift baselines)</div>
+<div class="box dim"><b>Ops database</b>Alembic-migrated SQLite: SqlRepo (models, datasets) + OpsRepo (policy versions, drift baselines; incidents are still in memory)</div>
 <div class="box dim"><b>Audit tables</b>DurableAuditStore, HMAC-chained rows</div>
 <div class="box dim"><b>MLflow store</b>separate sqlite:/// file, off by default</div>
 </div>
