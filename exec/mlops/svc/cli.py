@@ -356,48 +356,6 @@ def create_cli(client_factory: Callable[[], MlopsClient]) -> typer.Typer:
         except MlopsApiError as e:
             _handle_api_error(e)
 
-    @policy.command("differential-check")
-    def differential_check(
-        file: str,
-        subject: list[str] = typer.Option(..., "--subject", help="Subject name to test (repeatable)"),
-        seed: int = typer.Option(0, help="Deterministic seed for generated test requests"),
-    ) -> None:
-        """Cross-check a candidate policy bundle: casbin vs the real PolicyDecisionPoint.
-
-        Entirely local (no server round trip, no audit entries written): builds a
-        casbin enforcer from the same bundle file `policy publish` would send, and
-        compares its decisions against the real PolicyDecisionPoint on a generated
-        set of requests -- a pre-publish sanity check, not a claim of equivalence.
-        """
-        from mlops.kernel import ValidationFailed
-        from mlops.policy_engine import PolicyBundle, PolicyDecisionPoint
-        from mlops.interop.casbin_adapter import generate_requests, run_differential
-
-        try:
-            data = _read_file_json(file)
-            bundle = PolicyBundle.from_dict(data)
-        except (KeyError, TypeError, ValueError) as e:
-            typer.echo(f"error: invalid policy bundle: {e}", err=True)
-            raise typer.Exit(code=2)
-
-        pdp = PolicyDecisionPoint(bundle=bundle)
-        try:
-            requests = generate_requests(bundle, list(subject), seed)
-            result = run_differential(pdp, bundle, requests)
-        except ValidationFailed as e:
-            typer.echo(f"error: {e}", err=True)
-            raise typer.Exit(code=2)
-
-        _print_json({
-            "total": result.total,
-            "agreements": result.agreements,
-            "disagreements": result.disagreements,
-            "untranslatable_rule_ids": result.untranslatable_rule_ids,
-        })
-
-        if result.disagreements:
-            raise typer.Exit(code=1)
-
     @policy.command("calibration-crosscheck")
     def calibration_crosscheck(
         bundle_file: str,

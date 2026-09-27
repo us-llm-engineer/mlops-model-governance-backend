@@ -48,7 +48,33 @@ __all__ = [
     "PolicyDecision",
     "PolicyDecisionPoint",
     "load_policy",
+    "key_match",
+    "scope_of",
+    "scope_covers",
 ]
+
+
+def key_match(pattern: str, value: str) -> bool:
+    """casbin keyMatch: "*" matches anything, "prefix*" any string starting with prefix."""
+    if pattern.endswith("*"):
+        return value.startswith(pattern[:-1])
+    return pattern == value
+
+
+def scope_of(params: Any) -> tuple:
+    """(action, resource) scope patterns of a rule's params; each defaults to "*"."""
+    if not isinstance(params, dict):
+        return ("*", "*")
+    return (params.get("action", "*"), params.get("resource", "*"))
+
+
+def scope_covers(new: str, old: str) -> bool:
+    """True if every string matched by pattern `old` is also matched by pattern `new`."""
+    if new == old or new == "*":
+        return True
+    if new.endswith("*"):
+        return old.startswith(new[:-1])
+    return False
 
 
 @dataclass
@@ -257,7 +283,7 @@ class PolicyDecisionPoint:
             # A hardcoded "" here only ever worked against ChainedAuditStore,
             # which does no validation; DurableAuditStore rejects an empty
             # resource outright. context conventionally carries a "resource"
-            # key (see interop.casbin_adapter.run_differential); fall back to
+            # key (see docs/POLICY-CONTRACT.md); fall back to
             # the action name so this is never empty either way.
             resource = context.get("resource") if isinstance(context, dict) else None
             self.audit.append(
@@ -305,13 +331,14 @@ class PolicyDecisionPoint:
         rule_results = []
 
         for rule in self.bundle.rules:
-            passed = self._evaluate_rule(rule, context)
+            applicable, passed = self._scoped_evaluate(rule, action, context)
             rule_results.append(
                 {
                     "id": rule.id,
                     "kind": rule.kind,
                     "severity": rule.severity,
                     "passed": passed,
+                    "applicable": applicable,
                 }
             )
             if not passed:
@@ -335,6 +362,27 @@ class PolicyDecisionPoint:
             policy_hash=self.bundle.hash,
             action=action,
         )
+
+    @staticmethod
+    def _scoped_evaluate(rule: Rule, action: str, context: Dict[str, Any]) -> tuple:
+        """(applicable, passed). A rule outside its action/resource scope passes untouched.
+
+        A resource-scoped rule with no string resource in the context, or a malformed
+        scope, is applicable and fails (fail-closed).
+        """
+        try:
+            scope_action, scope_resource = scope_of(rule.params)
+            if not key_match(scope_action, action):
+                return False, True
+            if scope_resource != "*":
+                resource = context.get("resource")
+                if not isinstance(resource, str):
+                    return True, False
+                if not key_match(scope_resource, resource):
+                    return False, True
+        except Exception:
+            return True, False
+        return True, PolicyDecisionPoint._evaluate_rule(rule, context)
 
     @staticmethod
     def _evaluate_rule(rule: Rule, context: Dict[str, Any]) -> bool:

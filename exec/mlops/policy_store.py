@@ -21,7 +21,7 @@ from .kernel import (
     SystemClock,
     ValidationFailed,
 )
-from .policy_engine import PolicyBundle, PolicyDecision, PolicyDecisionPoint
+from .policy_engine import PolicyBundle, PolicyDecision, PolicyDecisionPoint, scope_covers, scope_of
 
 __all__ = [
     "is_stricter_or_equal",
@@ -61,6 +61,26 @@ def _clean_str(value: Any, name: str, max_len: int = 256) -> str:
         raise ValidationFailed(f"{name} exceeds {max_len} characters")
 
     return cleaned
+
+
+def _validate_scope(rule_id: str, params: Dict[str, Any]) -> None:
+    """action/resource scope: non-empty str, no control chars, '*' only as the last char."""
+    for dim in ("action", "resource"):
+        if dim not in params:
+            continue
+        pat = params[dim]
+        if not isinstance(pat, str) or not pat.strip():
+            raise ValidationFailed(f"rule {rule_id}: {dim} scope must be a non-empty str")
+        if any(ord(c) < 0x20 or ord(c) == 0x7f for c in pat):
+            raise ValidationFailed(f"rule {rule_id}: {dim} scope contains control character")
+        if "*" in pat[:-1]:
+            raise ValidationFailed(f"rule {rule_id}: {dim} scope may only use '*' as the last character")
+
+
+def _without_scope(params: Any) -> Any:
+    if not isinstance(params, dict):
+        return params
+    return {k: v for k, v in params.items() if k not in ("action", "resource")}
 
 
 def _is_finite_number(value: Any) -> bool:
@@ -155,6 +175,8 @@ def _validate_rules(rules: List[Any]) -> None:
             raise ValidationFailed(f"rule {rule_id}: missing 'params'")
         if not isinstance(params, dict):
             raise ValidationFailed(f"rule {rule_id}: params must be dict")
+
+        _validate_scope(rule_id, params)
 
         # Validate params per kind
         if kind == "min_metric":
@@ -284,6 +306,10 @@ def is_stricter_or_equal(new: PolicyBundle, old: PolicyBundle) -> bool:
 
         # Check rule-specific strictness, robust against incomparable params
         try:
+            # A narrower scope means the rule constrains fewer requests: loosening
+            for new_pat, old_pat in zip(scope_of(new_rule.params), scope_of(old_rule.params)):
+                if not scope_covers(new_pat, old_pat):
+                    return False
             if old_rule.kind == "min_metric":
                 # Higher minimum is stricter
                 old_min = old_rule.params.get("min") if isinstance(old_rule.params, dict) else None
@@ -303,8 +329,8 @@ def is_stricter_or_equal(new: PolicyBundle, old: PolicyBundle) -> bool:
                 if new_max > old_max:
                     return False
             else:
-                # For other kinds, params must be equal
-                if new_rule.params != old_rule.params:
+                # For other kinds, params (ignoring scope, checked above) must be equal
+                if _without_scope(new_rule.params) != _without_scope(old_rule.params):
                     return False
         except (TypeError, AttributeError):
             # If comparison fails, treat as "not stricter" (loosening)

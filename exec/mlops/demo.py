@@ -98,8 +98,8 @@ def main() -> int:
     ).json()
     _show("transitioned to staging", staged)
 
-    # ------------------------------------------------------------------ 2. Policy: publish, decide, casbin cross-check
-    _hr("2. Publish a policy, evaluate a real decision, cross-check it against casbin")
+    # ------------------------------------------------------------------ 2. Policy: publish, decide (scoped rule)
+    _hr("2. Publish a scoped policy and evaluate real decisions")
     policy_rules = [
         {"id": "admin-only-deploy", "version": 1, "kind": "role_in", "severity": "block",
          "params": {"key": "role", "roles": ["admin"], "action": "deploy", "resource": "prod"}},
@@ -117,24 +117,22 @@ def main() -> int:
         json={"action": "deploy", "context": {"role": "admin", "resource": "prod"}},
         headers=ADMIN,
     ).json()
-    _show("real PolicyDecisionPoint decision", decision)
+    _show("admin deploying to prod", decision)
 
-    # /v1/policy/active only echoes {version, name} (no rules endpoint exists), so
-    # -- like the CLI's `policy differential-check` -- the cross-check builds its
-    # local PolicyBundle from the same rules just published, not a server fetch.
-    from mlops.policy_engine import PolicyBundle, PolicyDecisionPoint, Rule
-    from mlops.interop.casbin_adapter import generate_requests, run_differential
-
-    bundle = PolicyBundle(
-        rules=[Rule(**r) for r in policy_rules], name="deploy-gate", version=policy["version"]
-    )
-    pdp = PolicyDecisionPoint(bundle=bundle)
-    requests = generate_requests(bundle, ["admin", "viewer1"], seed=0)
-    diff = run_differential(pdp, bundle, requests)
-    _show("casbin cross-check (demonstration, not a claim of equivalence)", {
-        "total": diff.total, "agreements": diff.agreements,
-        "disagreements": diff.disagreements[:3], "untranslatable_rule_ids": diff.untranslatable_rule_ids,
-    })
+    # The rule is scoped (action="deploy", resource="prod"): it applies to that request
+    # only. A viewer is denied there; the same viewer on another resource is not touched.
+    denied = client.post(
+        "/v1/policy/decide",
+        json={"action": "deploy", "context": {"role": "viewer", "resource": "prod"}},
+        headers=ADMIN,
+    ).json()
+    _show("viewer deploying to prod (rule applies, fails)", {"allow": denied.get("allow"), "reasons": denied.get("reasons")})
+    elsewhere = client.post(
+        "/v1/policy/decide",
+        json={"action": "deploy", "context": {"role": "viewer", "resource": "dev"}},
+        headers=ADMIN,
+    ).json()
+    _show("viewer deploying to dev (rule out of scope)", {"allow": elsewhere.get("allow"), "reasons": elsewhere.get("reasons")})
 
     # ------------------------------------------------------------------ 3. Manifest lint (local, no server round trip)
     _hr("3. Lint a raw Kubernetes manifest (manifest_io.load_and_lint, local call)")
