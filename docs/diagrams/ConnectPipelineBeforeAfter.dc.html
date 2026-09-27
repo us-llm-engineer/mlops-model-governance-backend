@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>connect-pipeline before and after</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:wght@500;600&display=swap">
+<style>
+body{margin:0;background:#faf9f5;color:#141413;font-family:'IBM Plex Sans',system-ui,sans-serif}
+.k{font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.09em;text-transform:uppercase;color:#a8502f}
+h1{font-family:'Newsreader',Georgia,serif;font-weight:500;font-size:34px;margin:8px 0 6px;letter-spacing:-.01em}
+.sub{font-size:14px;color:#5e5d59;line-height:1.45;margin:0}
+.box{background:#fff;border:1px solid #d8d5c8;border-radius:10px;padding:10px 13px;font-size:12.5px;line-height:1.4}
+.box b{display:block;font-size:13.5px;margin-bottom:3px}
+.m{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#5e5d59}
+.live{border-color:#2f6f6a;background:#eef5f3}
+.dim{background:#efede4;border-style:dashed}
+.bad{border-color:#8a3b23;background:#fbeee8}
+.stat{flex:1;min-width:0;text-align:center}
+.stat b{display:block;font:600 24px/1.1 'Newsreader',Georgia,serif}
+.stat span{font-size:12px;color:#5e5d59}
+</style>
+</helmet>
+<div style="width:1000px;height:680px;box-sizing:border-box;padding:34px 44px 30px;display:flex;flex-direction:column;gap:12px">
+<div>
+<div class="k">12 · connect-pipeline</div>
+<h1>Tested in pieces, connected as a whole</h1>
+<p class="sub">The sweep found code that worked and passed its own tests but was never reachable from the real entrypoint.</p>
+</div>
+
+<div style="display:flex;gap:16px;margin-top:4px">
+<div class="box bad" style="flex:1;min-width:0"><b>Before</b>
+<span class="m">__main__ → create_app(settings)</span><br>
+extensions, workers and repos all default to None. Unreachable when the service ran: 5 extensions, 3 routers, telemetry, domain metrics, both workers, OpsRepo. <span class="m">mlops incidents open</span> returned 404 against a server started the documented way.</div>
+<div class="box live" style="flex:1;min-width:0"><b>After</b>
+<span class="m">__main__ → serve → build_default_wiring → create_app</span><br>
+Same modules, now on a real path. Plus: dataset validation, named drift monitors, lineage, opt-in MLflow mirror, and CLI commands for lint-manifest and calibration-crosscheck. (A casbin differential-check command was added here and later removed: casbin is now a test oracle.)</div>
+</div>
+
+<div class="box">
+<b>Defects that only appeared once the code ran for real</b>
+<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 18px;margin-top:4px">
+<div>Escalation tick called <span class="m">escalate_if_overdue()</span> with no id; the real class needs one. Tests used a fake with the wrong shape.</div>
+<div>Model mirroring called <span class="m">upsert_model</span> on OpsRepo, which only SqlRepo has. The drift worker needed the reverse.</div>
+<div>Four audit calls passed an empty resource. In-memory store allowed it; the durable one rejects it.</div>
+<div>Drift tick passed a deque to OpsRepo, which requires a list. The test's fake monitor already used a list.</div>
+</div>
+</div>
+
+<div class="box dim">
+<b>Two corrections to the first sweep</b>
+rbac, gates, promotion and state_machine were flagged dead but are imported by live modules, so they stayed. Only 13 modules with no live importers moved to <span class="m">legacy/</span>. A call-graph check agreed: 78 of 80 inbound edges into legacy are package re-exports, and the other 2 are name collisions (Counter, Gauge).
+</div>
+
+<div style="display:flex;gap:10px;margin-top:auto;padding-top:6px;border-top:1px solid #d8d5c8">
+<div class="stat"><b>2743</b><span>tests passed, 0 failed</span></div>
+<div class="stat"><b>136 / 136</b><span>smoke claims verified</span></div>
+<div class="stat"><b>37.5%</b><span>framework share of 23,399 LOC (target 45%, still open)</span></div>
+<div class="stat"><b>9 steps</b><span>demo driver, exit 0, no mocks</span></div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1000,"height":680}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

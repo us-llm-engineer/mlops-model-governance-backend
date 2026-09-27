@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Opt-in MLflow mirror</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:wght@500;600&display=swap">
+<style>
+body{margin:0;background:#faf9f5;color:#141413;font-family:'IBM Plex Sans',system-ui,sans-serif}
+.k{font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.09em;text-transform:uppercase;color:#a8502f}
+h1{font-family:'Newsreader',Georgia,serif;font-weight:500;font-size:34px;margin:8px 0 6px;letter-spacing:-.01em}
+.sub{font-size:14px;color:#5e5d59;line-height:1.45;margin:0}
+.box{background:#fff;border:1px solid #d8d5c8;border-radius:10px;padding:10px 13px;font-size:12.5px;line-height:1.4}
+.box b{display:block;font-size:13.5px;margin-bottom:3px}
+.m{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#5e5d59}
+.live{border-color:#2f6f6a;background:#eef5f3}
+.acc{border-color:#d1734f;background:#fbeee8}
+.dim{background:#efede4;border-style:dashed}
+.arr{color:#a8502f;font:500 13px/1 'IBM Plex Mono',monospace;padding-left:14px}
+</style>
+</helmet>
+<div style="width:1000px;height:680px;box-sizing:border-box;padding:34px 44px 30px;display:flex;flex-direction:column;gap:12px">
+<div>
+<div class="k">11 · MLflow mirror</div>
+<h1>A shadow copy, never the source of truth</h1>
+<p class="sub">Off unless <span class="m">mlflow_tracking_uri</span> is set. The domain registry stays authoritative either way.</p>
+</div>
+
+<div style="display:flex;gap:28px;margin-top:6px">
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px">
+<div class="box acc"><b>1. Setting</b><span class="m">mlflow_tracking_uri</span> must be an absolute <span class="m">sqlite:///</span> URI. Default None: no bridge, no mlflow import.</div>
+<div class="arr">▼ create_app</div>
+<div class="box live"><b>2. MlflowBridge(uri)</b>Owns its own client; never touches MLflow's global tracking URI, so two bridges cannot redirect each other.</div>
+<div class="arr">▼ every register, validate, transition</div>
+<div class="box live"><b>3. mirror_experiment_run</b>Params <span class="m">artifact_hash</span> and <span class="m">dataset_version</span>, run id <span class="m">model:version</span>, experiment named after the model. Repeat calls reuse the same run.</div>
+<div class="arr">▼ only if version_id is all digits</div>
+<div class="box live"><b>4. mirror_stage_transition</b>Sets an MLflow model alias for the stage. Operator-chosen ids like "v1" skip this step instead of failing.</div>
+<div class="arr">▼ any exception</div>
+<div class="box dim"><b>5. Swallowed</b>A mirror failure never blocks or changes the real registration.</div>
+</div>
+
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:10px">
+<div class="box" style="background:#fff8f0;border-color:#d1734f">
+<b>Traps the bridge already handles</b>
+<div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">
+<div><span class="m">File store</span> is deprecated in mlflow-skinny 3.16: only sqlite URIs are accepted.</div>
+<div><span class="m">Params</span> are stored as strings; private type tags restore ints, floats and bools on read.</div>
+<div><span class="m">Stages</span> are deprecated; aliases are used instead.</div>
+<div><span class="m">Version numbers</span> are allocated by MLflow. Asking for a number it would not assign raises Conflict before anything is created: no junk versions, no silent misalignment.</div>
+</div>
+</div>
+<div class="box"><b>Read it back</b><span class="m">bridge.get_mirrored_run("model:version")</span> returns params, latest metrics and tags. The demo prints it.</div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1000,"height":680}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

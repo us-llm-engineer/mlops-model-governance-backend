@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Entrypoint wiring</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:wght@500;600&display=swap">
+<style>
+body{margin:0;background:#faf9f5;color:#141413;font-family:'IBM Plex Sans',system-ui,sans-serif}
+.k{font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.09em;text-transform:uppercase;color:#a8502f}
+h1{font-family:'Newsreader',Georgia,serif;font-weight:500;font-size:34px;margin:8px 0 6px;letter-spacing:-.01em}
+.sub{font-size:14px;color:#5e5d59;line-height:1.45;margin:0}
+.box{background:#fff;border:1px solid #d8d5c8;border-radius:10px;padding:10px 13px;font-size:12.5px;line-height:1.4}
+.box b{display:block;font-size:13.5px;margin-bottom:3px}
+.m{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#5e5d59}
+.live{border-color:#2f6f6a;background:#eef5f3}
+.acc{border-color:#d1734f;background:#fbeee8}
+.dim{background:#efede4;border-style:dashed}
+.arr{color:#a8502f;font:500 13px/1 'IBM Plex Mono',monospace;padding-left:14px}
+</style>
+</helmet>
+<div style="width:1000px;height:680px;box-sizing:border-box;padding:34px 44px 30px;display:flex;flex-direction:column;gap:12px">
+<div>
+<div class="k">03 · Entrypoint wiring</div>
+<h1>python -m mlops.svc, step by step</h1>
+<p class="sub">The gap connect-pipeline closed: the real entrypoint now builds the extensions, workers and repos the service ships with.</p>
+</div>
+
+<div style="display:flex;gap:26px;margin-top:6px">
+<div style="width:400px;flex:none;display:flex;flex-direction:column;gap:6px">
+<div class="box"><b>__main__.main()</b>Parses <span class="m">--config --host --port --check</span>. Loads settings from file plus env (env wins).</div>
+<div class="arr">▼ --check</div>
+<div class="box dim"><b>create_app(settings) only</b>Dry run: proves settings parse and a minimal app builds. Prints ok, exits. No migrations, no workers.</div>
+<div class="arr">▼ otherwise</div>
+<div class="box acc"><b>serve(settings, host 0.0.0.0, port 8000)</b>Container-reachable default host.</div>
+<div class="arr">▼</div>
+<div class="box acc"><b>build_default_wiring(settings)</b>Constructs every real dependency once, returns them as create_app kwargs.</div>
+<div class="arr">▼</div>
+<div class="box acc"><b>create_app(settings, **wiring)</b>Mounts routes, then runs each extension. Lifespan starts the workers.</div>
+<div class="arr">▼</div>
+<div class="box"><b>uvicorn.run(app)</b></div>
+</div>
+
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:10px">
+<div class="box live"><b>What build_default_wiring returns</b>
+<span class="m">audit · registry · policy_store · clock · repo (SqlRepo) · ops_repo (OpsRepo) · dataset_registry · incidents_mgr · drift_monitors · drift_frame_reports · extensions[5] · workers[2]</span></div>
+
+<div class="box"><b>Database branch</b>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px">
+<div><span class="m">db_path is a real file</span><br>DurableAuditStore, then <span class="m">sqldb.upgrade(sqlite:///path, "head")</span>, then SqlRepo and OpsRepo on the same migrated tables, plus the drift worker.</div>
+<div><span class="m">db_path is :memory:</span><br>ChainedAuditStore, no repos, no drift worker. Everything else still runs.</div>
+</div></div>
+
+<div class="box"><b>Workers</b>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px">
+<div><span class="m">incident-escalation</span><br>every 60 s by default</div>
+<div><span class="m">drift-evaluation</span><br>every 300 s by default</div>
+</div></div>
+
+<div class="box"><b>Settings knobs added or relevant</b>
+<span class="m">incident_escalation_interval_s · drift_evaluation_interval_s · mlflow_tracking_uri (off) · metrics_public (off)</span></div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1000,"height":680}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

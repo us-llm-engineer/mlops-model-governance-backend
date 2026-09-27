@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Hash-chained audit log</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:wght@500;600&display=swap">
+<style>
+body{margin:0;background:#faf9f5;color:#141413;font-family:'IBM Plex Sans',system-ui,sans-serif}
+.k{font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.09em;text-transform:uppercase;color:#a8502f}
+h1{font-family:'Newsreader',Georgia,serif;font-weight:500;font-size:34px;margin:8px 0 6px;letter-spacing:-.01em}
+.sub{font-size:14px;color:#5e5d59;line-height:1.45;margin:0}
+.box{background:#fff;border:1px solid #d8d5c8;border-radius:10px;padding:10px 13px;font-size:12.5px;line-height:1.4}
+.box b{display:block;font-size:13.5px;margin-bottom:3px}
+.m{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#3d3d3a}
+.live{border-color:#2f6f6a;background:#eef5f3}
+.acc{border-color:#d1734f;background:#fbeee8}
+.ent{flex:1;min-width:0;background:#fff;border:1.5px solid #2f6f6a;border-radius:10px;padding:10px 12px;font:500 11px/1.55 'IBM Plex Mono',monospace}
+.ent .h{font:600 12px/1 'IBM Plex Sans',sans-serif;margin-bottom:6px;display:block}
+.link{align-self:center;color:#a8502f;font:600 11px/1.2 'IBM Plex Mono',monospace;text-align:center;width:64px;flex:none}
+</style>
+</helmet>
+<div style="width:1000px;height:680px;box-sizing:border-box;padding:34px 44px 30px;display:flex;flex-direction:column;gap:14px">
+<div>
+<div class="k">09 · Audit</div>
+<h1>Every entry signs the one before it</h1>
+<p class="sub">Two stores share one interface: an in-memory chain for tests and dev, and a SQLite-backed chain for real deployments.</p>
+</div>
+
+<div style="display:flex;gap:6px;margin-top:6px">
+<div class="ent"><span class="h">entry n-1</span>actor, action, resource<br>decision, ts, meta<br>prev_sig: GENESIS<br>signature: HMAC(...)</div>
+<div class="link">prev_sig ←<br>signature</div>
+<div class="ent"><span class="h">entry n</span>actor, action, resource<br>decision, ts, meta<br>prev_sig: sig(n-1)<br>signature: HMAC(...)</div>
+<div class="link">prev_sig ←<br>signature</div>
+<div class="ent"><span class="h">entry n+1</span>actor, action, resource<br>decision, ts, meta<br>prev_sig: sig(n)<br>signature: HMAC(...)</div>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
+<div class="box live"><b>Signature</b>HMAC-SHA256 over the canonical JSON payload, including ts, meta and prev_sig. Editing any field breaks that entry and every later one.</div>
+<div class="box live"><b>Head anchor</b><span class="m">{length, signature, anchor}</span>. Verification needs a complete head, otherwise truncation would pass unnoticed.</div>
+<div class="box live"><b>Verification</b><span class="m">ChainVerifier.verify_export(export, head)</span> is what POST /v1/audit/verify calls, for operators and admins.</div>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
+<div class="box acc"><b>Endpoints</b>GET /v1/audit/head · GET /v1/audit/export · POST /v1/audit/verify · GET /v1/audit/tail (server-sent events, capped concurrent streams). The last two exist because the audit extension is mounted at startup.</div>
+<div class="box"><b>A bug only a real database exposed</b>DurableAuditStore rejects an empty resource; the in-memory store never checked. Four call sites in policy_store and the decision point passed <span class="m">""</span>. They now pass the policy name, version or context resource.</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1000,"height":680}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

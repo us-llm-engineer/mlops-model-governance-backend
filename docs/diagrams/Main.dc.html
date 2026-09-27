@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>System architecture</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:wght@500;600&display=swap">
+<style>
+body{margin:0;background:#faf9f5;color:#141413;font-family:'IBM Plex Sans',system-ui,sans-serif}
+.k{font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.09em;text-transform:uppercase;color:#a8502f}
+h1{font-family:'Newsreader',Georgia,serif;font-weight:500;font-size:34px;margin:8px 0 6px;letter-spacing:-.01em}
+.sub{font-size:14px;color:#5e5d59;line-height:1.45;margin:0}
+.lab{width:112px;flex:none;font:600 11px/1.3 'IBM Plex Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:#5e5d59}
+.box{flex:1;min-width:0;background:#fff;border:1px solid #d8d5c8;border-radius:10px;padding:9px 11px;font-size:12.5px;line-height:1.35}
+.box b{display:block;font-size:13px;margin-bottom:2px}
+.m{font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5e5d59}
+.live{border-color:#2f6f6a;background:#eef5f3}
+.acc{border-color:#d1734f;background:#fbeee8}
+.dim{background:#efede4;border-style:dashed}
+.arr{color:#a8502f;font:500 12px/1 'IBM Plex Mono',monospace;text-align:center;height:14px}
+</style>
+</helmet>
+<div style="width:1000px;height:680px;box-sizing:border-box;padding:34px 44px 30px;display:flex;flex-direction:column;gap:8px">
+<div>
+<div class="k">01 · Architecture</div>
+<h1>One service, five layers, real wiring</h1>
+<p class="sub">What runs when you start <span class="m">python -m mlops.svc</span>: clients call a FastAPI service that composes stdlib domain modules, framework adapters and SQLite.</p>
+</div>
+
+<div style="display:flex;gap:12px;align-items:stretch;margin-top:8px">
+<div class="lab">Clients</div>
+<div class="box"><b>mlops CLI</b><span class="m">svc/cli.py · cli_ops.py</span></div>
+<div class="box"><b>MlopsClient SDK</b><span class="m">svc/sdk.py · httpx</span></div>
+<div class="box"><b>Demo driver</b><span class="m">python -m mlops.demo</span></div>
+<div class="box"><b>Prometheus</b><span class="m">GET /metrics (token, or opt-in public)</span></div>
+</div>
+<div class="arr">▼ HTTP · Bearer token → role (viewer / operator / admin)</div>
+
+<div style="display:flex;gap:12px;align-items:stretch">
+<div class="lab">Service<br><span style="font-weight:500">svc/app.py</span></div>
+<div class="box acc"><b>Routes</b>models · datasets · policy · lint · drift · audit · incidents · lineage</div>
+<div class="box acc"><b>Middleware</b>telemetry (OTel) · metrics · timing · error handlers</div>
+<div class="box acc"><b>5 extensions</b>telemetry · incidents · audit · policy-history · domain metrics</div>
+<div class="box acc"><b>2 workers</b>incident escalation · drift evaluation (anyio)</div>
+</div>
+<div class="arr">▼ plain Python calls</div>
+
+<div style="display:flex;gap:12px;align-items:stretch">
+<div class="lab">Core domain<br><span style="font-weight:500">stdlib only</span></div>
+<div class="box live"><b>ModelRegistry</b>+ DatasetRegistry</div>
+<div class="box live"><b>PolicyStore</b>+ PolicyDecisionPoint</div>
+<div class="box live"><b>IncidentManager</b>+ DriftMonitor</div>
+<div class="box live"><b>Audit chain</b>Chained / Durable store</div>
+<div class="box live"><b>LineageGraph</b>+ config_lint</div>
+</div>
+<div class="arr">▼ optional mirrors and test-time oracle</div>
+
+<div style="display:flex;gap:12px;align-items:stretch">
+<div class="lab">Framework<br>layer</div>
+<div class="box"><b>casbin</b><span class="m">test oracle only · tests/oracle</span></div>
+<div class="box"><b>mlflow-skinny</b><span class="m">interop/mlflow_bridge</span></div>
+<div class="box"><b>pandas</b><span class="m">ext/drift_frame</span></div>
+<div class="box"><b>scikit-learn</b><span class="m">ext/calibration_sk</span></div>
+<div class="box"><b>networkx</b><span class="m">ext/lineage_graph</span></div>
+</div>
+<div class="arr">▼ persistence</div>
+
+<div style="display:flex;gap:12px;align-items:stretch">
+<div class="lab">Storage</div>
+<div class="box dim"><b>Ops database</b>Alembic-migrated SQLite: SqlRepo (models, datasets) + OpsRepo (policy, incidents, drift baselines)</div>
+<div class="box dim"><b>Audit tables</b>DurableAuditStore, HMAC-chained rows</div>
+<div class="box dim"><b>MLflow store</b>separate sqlite:/// file, off by default</div>
+</div>
+<div class="m" style="margin-top:6px">Key: clay = service plumbing · green = domain logic (stdlib) · white = adapters and clients · grey dashed = storage. The band label on the left carries the meaning, so the colours are decoration.</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1000,"height":680}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

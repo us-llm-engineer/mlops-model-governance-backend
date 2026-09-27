@@ -1,0 +1,124 @@
+{
+  "v": 3,
+  "attachments": {},
+  "boards": {
+    "AuditChain.dc.html": {
+      "h": 680,
+      "title": "9. Hash-chained audit log",
+      "w": 1000,
+      "x": 0,
+      "y": 1600
+    },
+    "ConnectPipelineBeforeAfter.dc.html": {
+      "h": 680,
+      "title": "12. connect-pipeline: before and after",
+      "w": 1000,
+      "x": 3240,
+      "y": 1600
+    },
+    "DriftPipeline.dc.html": {
+      "h": 680,
+      "title": "7. Drift monitoring pipeline",
+      "w": 1000,
+      "x": 2160,
+      "y": 800
+    },
+    "IncidentLifecycle.dc.html": {
+      "h": 680,
+      "title": "8. Incident lifecycle + escalation",
+      "w": 1000,
+      "x": 3240,
+      "y": 800
+    },
+    "LineageGraph.dc.html": {
+      "h": 680,
+      "title": "10. Lineage graph",
+      "w": 1000,
+      "x": 1080,
+      "y": 1600
+    },
+    "Main.dc.html": {
+      "h": 680,
+      "title": "1. System architecture",
+      "w": 1000,
+      "x": 0,
+      "y": 0
+    },
+    "MlflowMirror.dc.html": {
+      "h": 680,
+      "title": "11. Opt-in MLflow mirror",
+      "w": 1000,
+      "x": 2160,
+      "y": 1600
+    },
+    "ModelLifecycle.dc.html": {
+      "h": 680,
+      "title": "5. Model version lifecycle",
+      "w": 1000,
+      "x": 0,
+      "y": 800
+    },
+    "PackageLayout.dc.html": {
+      "h": 680,
+      "title": "4. Package layout",
+      "w": 1000,
+      "x": 3240,
+      "y": 0
+    },
+    "PolicyDecisionFlow.dc.html": {
+      "h": 680,
+      "title": "6. Policy decision + casbin oracle (tests)",
+      "w": 1000,
+      "x": 1080,
+      "y": 800
+    },
+    "RequestLifecycle.dc.html": {
+      "h": 680,
+      "title": "2. Request lifecycle",
+      "w": 1000,
+      "x": 1080,
+      "y": 0
+    },
+    "WiringArchitecture.dc.html": {
+      "h": 680,
+      "title": "3. Entrypoint wiring",
+      "w": 1000,
+      "x": 2160,
+      "y": 0
+    }
+  },
+  "createdOnFiles": {
+    "at": "2026-09-26T20:05:00Z",
+    "v": 1
+  },
+  "designSystems": [],
+  "launch": {
+    "view": "canvas"
+  },
+  "notes": {
+    "title1": {
+      "kind": "title1",
+      "maxW": 4240,
+      "text": "MLOps control plane: how it is wired",
+      "w": 240,
+      "x": 0,
+      "y": -260
+    }
+  },
+  "order": [
+    "Main.dc.html",
+    "RequestLifecycle.dc.html",
+    "WiringArchitecture.dc.html",
+    "PackageLayout.dc.html",
+    "ModelLifecycle.dc.html",
+    "PolicyDecisionFlow.dc.html",
+    "DriftPipeline.dc.html",
+    "IncidentLifecycle.dc.html",
+    "AuditChain.dc.html",
+    "LineageGraph.dc.html",
+    "MlflowMirror.dc.html",
+    "ConnectPipelineBeforeAfter.dc.html"
+  ],
+  "pages": [],
+  "title": "MLOps Control Plane — System Design"
+}

@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Package layout</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:wght@500;600&display=swap">
+<style>
+body{margin:0;background:#faf9f5;color:#141413;font-family:'IBM Plex Sans',system-ui,sans-serif}
+.k{font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.09em;text-transform:uppercase;color:#a8502f}
+h1{font-family:'Newsreader',Georgia,serif;font-weight:500;font-size:34px;margin:8px 0 6px;letter-spacing:-.01em}
+.sub{font-size:14px;color:#5e5d59;line-height:1.45;margin:0}
+.box{background:#fff;border:1px solid #d8d5c8;border-radius:10px;padding:10px 13px;font-size:12px;line-height:1.45}
+.box b{display:block;font-size:13px;margin-bottom:3px}
+.m{font-family:'IBM Plex Mono',monospace;font-size:11px;color:#3d3d3a}
+.live{border-color:#2f6f6a;background:#eef5f3}
+.acc{border-color:#d1734f;background:#fbeee8}
+.dim{background:#efede4;border-style:dashed}
+.tag{font:600 10px/1 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:#5e5d59;display:block;margin-bottom:6px}
+</style>
+</helmet>
+<div style="width:1000px;height:680px;box-sizing:border-box;padding:34px 44px 30px;display:flex;flex-direction:column;gap:12px">
+<div>
+<div class="k">04 · Package layout</div>
+<h1>Live service, shared vocabulary, and the archive</h1>
+<p class="sub">Everything lives under <span class="m">exec/mlops/</span>. The colours say what each group is for, not how good it is.</p>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:4px">
+<div class="box acc"><span class="tag">svc/ · live service</span><span class="m">app · deps · errors · idempotency · extensions · workers · telemetry · metrics_collector · settings · schemas · sdk · cli · cli_ops · manifest_io · audit_stream · routers/(audit, incidents, policy_history)</span></div>
+<div class="box live"><span class="tag">core domain · live</span><span class="m">kernel · audit · storage_sqlite · model_stages · dataset_versions · policy_engine · policy_store · incidents · drift · config_lint · lineage · sqldb · sqldb_ops · supply_chain</span></div>
+<div class="box live"><span class="tag">interop/ and ext/ · framework adapters</span><span class="m">mlflow_bridge · drift_frame · calibration_sk · lineage_graph · cyclonedx_sbom</span></div>
+
+<div class="box"><span class="tag">shared vocabulary · kept in place</span><span class="m">rbac · gates · promotion · state_machine</span><br>Small types (Principal, Role, GateDecision, RunState, PromotionRole) imported by features, slo_guard, experiments, chaos and cost_gate. Not dead code.</div>
+<div class="box"><span class="tag">product features · not yet wired</span><span class="m">features · feature_store · feature_parity · experiments · experiment_registry · cost_ledger · cost_gate · slo_guard · ml_test_score · policy_calibration.Calibrator</span></div>
+<div class="box"><span class="tag">labelled simulations · by design</span><span class="m">chaos · chaos_scenarios · floor_guard · gate_experiment · enforcement_model</span><br>Documented as what-if models, not live paths.</div>
+</div>
+
+<div class="box dim" style="margin-top:2px">
+<span class="tag">legacy/ · Project 1 (R1 to R3), preserved regression baseline</span>
+<span class="m">api · artifacts · persistence · latency · retry · secrets · spec · observability · cli · metrics · serving · rollback · evaluation</span>
+<div style="margin-top:6px;color:#5e5d59">13 modules, closed and graded earlier. In the call graph, 78 of the 80 inbound edges are <span class="m">mlops/__init__.py</span> re-exports, so <span class="m">mlops.ArtifactStore</span> and friends still resolve; the other 2 are the tool mistaking prometheus_client's Counter and Gauge for same-named legacy classes. Two absolute imports (rollback to promotion, evaluation to gates) reach back out.</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1000,"height":680}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

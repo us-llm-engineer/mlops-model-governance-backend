@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Request lifecycle</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:wght@500;600&display=swap">
+<style>
+body{margin:0;background:#faf9f5;color:#141413;font-family:'IBM Plex Sans',system-ui,sans-serif}
+.k{font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.09em;text-transform:uppercase;color:#a8502f}
+h1{font-family:'Newsreader',Georgia,serif;font-weight:500;font-size:34px;margin:8px 0 6px;letter-spacing:-.01em}
+.sub{font-size:14px;color:#5e5d59;line-height:1.45;margin:0}
+.box{background:#fff;border:1px solid #d8d5c8;border-radius:10px;padding:12px 14px;font-size:12.5px;line-height:1.4}
+.box b{display:block;font-size:13.5px;margin-bottom:4px}
+.n{display:inline-block;font:600 11px/1 'IBM Plex Mono',monospace;color:#fff;background:#a8502f;border-radius:20px;padding:4px 7px;margin-right:6px}
+.m{font-family:'IBM Plex Mono',monospace;font-size:11px;color:#5e5d59}
+.live{border-color:#2f6f6a;background:#eef5f3}
+.acc{border-color:#d1734f;background:#fbeee8}
+</style>
+</helmet>
+<div style="width:1000px;height:680px;box-sizing:border-box;padding:34px 44px 30px;display:flex;flex-direction:column;gap:14px">
+<div>
+<div class="k">02 · Request lifecycle</div>
+<h1>What happens to POST /v1/models</h1>
+<p class="sub">Every state-changing call follows the same path. Failures short-circuit into one JSON error shape.</p>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:6px">
+<div class="box"><b><span class="n">1</span>Client call</b>Bearer token in the Authorization header, optional Idempotency-Key. The CLI and SDK build this for you.</div>
+<div class="box"><b><span class="n">2</span>Middleware</b>OpenTelemetry span (W3C traceparent in, X-Trace-Id out), Prometheus counter and histogram, timing.</div>
+<div class="box"><b><span class="n">3</span>Auth and role</b><span class="m">get_principal</span> maps the token to a name and role. <span class="m">require_role("operator","admin")</span> gates the route: 401 or 403.</div>
+<div class="box"><b><span class="n">4</span>Body checks</b>Content type (415), size cap (413), depth and NaN checks, then a strict pydantic model that forbids extra fields: 422.</div>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px">
+<div class="box acc"><b><span class="n">5</span>Idempotency</b>Same key and same body replays the cached 2xx. Same key, different body: conflict. Still running: 409 with Retry-After.</div>
+<div class="box live"><b><span class="n">6</span>Domain call</b>Runs in a thread pool: <span class="m">registry.register(...)</span>. A dataset_version is looked up in the DatasetRegistry: unknown means 404. The audit entry is appended here.</div>
+<div class="box live"><b><span class="n">7</span>Mirror record</b>One lineage node plus an edge to the previous node, a best-effort MLflow mirror when enabled, and a SqlRepo upsert when a real database is configured.</div>
+<div class="box"><b><span class="n">8</span>Response</b>201 with the model record. The result is stored for idempotent replay before it is returned.</div>
+</div>
+
+<div class="box" style="border-color:#8a3b23;background:#fff;margin-top:2px">
+<b style="color:#8a3b23">Error path</b>
+<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;font-size:12.5px">
+<div><span class="m">ValidationFailed</span><br>400 validation_failed</div>
+<div><span class="m">NotFound</span><br>404 not_found</div>
+<div><span class="m">Conflict</span><br>409 conflict</div>
+<div><span class="m">PolicyDenied</span><br>403 policy_denied</div>
+</div>
+<div style="margin-top:8px;color:#5e5d59">All map through <span class="m">install_error_handlers</span> to <span class="m">{"error": {"code", "message"}}</span>. Schema failures are 422 and name fields only; an integrity failure is a bare 500. Domain messages can quote an identifier, e.g. an unknown dataset version.</div>
+</div>
+
+<div class="sub" style="margin-top:auto">Green boxes are domain logic; clay boxes are service plumbing. The same numbered path applies to validate, transition, datasets and incidents.</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1000,"height":680}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

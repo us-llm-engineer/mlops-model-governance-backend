@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lineage graph</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:wght@500;600&display=swap">
+<style>
+body{margin:0;background:#faf9f5;color:#141413;font-family:'IBM Plex Sans',system-ui,sans-serif}
+.k{font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.09em;text-transform:uppercase;color:#a8502f}
+h1{font-family:'Newsreader',Georgia,serif;font-weight:500;font-size:34px;margin:8px 0 6px;letter-spacing:-.01em}
+.sub{font-size:14px;color:#5e5d59;line-height:1.45;margin:0}
+.box{background:#fff;border:1px solid #d8d5c8;border-radius:10px;padding:10px 13px;font-size:12.5px;line-height:1.4}
+.box b{display:block;font-size:13.5px;margin-bottom:3px}
+.m{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#5e5d59}
+.live{border-color:#2f6f6a;background:#eef5f3}
+.acc{border-color:#d1734f;background:#fbeee8}
+.dim{background:#efede4;border-style:dashed}
+.nd{flex:1;min-width:0;text-align:center;border:1.5px solid #2f6f6a;background:#fff;border-radius:10px;padding:14px 8px;font-size:12.5px;line-height:1.4}
+.nd b{display:block;font:600 13px/1.2 'IBM Plex Mono',monospace;margin-bottom:4px}
+.eg{align-self:center;color:#a8502f;font:600 11px/1.2 'IBM Plex Mono',monospace;text-align:center;width:88px;flex:none}
+</style>
+</helmet>
+<div style="width:1000px;height:680px;box-sizing:border-box;padding:34px 44px 30px;display:flex;flex-direction:column;gap:14px">
+<div>
+<div class="k">10 · Lineage</div>
+<h1>A graph that grows with every model change</h1>
+<p class="sub">One content-addressed node per register, validate or transition, linked to the previous node for the same version.</p>
+</div>
+
+<div style="display:flex;gap:6px;margin-top:6px">
+<div class="nd"><b>node 1</b>model_version<br>stage registered</div>
+<div class="eg">transition<br>→</div>
+<div class="nd"><b>node 2</b>model_version<br>validated, stage registered</div>
+<div class="eg">transition<br>→</div>
+<div class="nd"><b>node 3</b>model_version<br>stage staging</div>
+<div class="eg">transition<br>→</div>
+<div class="nd" style="background:#eef5f3"><b>node 4 (current)</b>model_version<br>stage production</div>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px">
+<div class="box acc"><b>GET /v1/lineage/{model}/{version}/ancestors</b>From the current node: everything it descends from. For node 4 that is nodes 1 to 3.</div>
+<div class="box acc"><b>GET /v1/lineage/{model}/{version}/blast-radius</b>From the current node: everything downstream of it. Empty for the newest node, as in the demo run.</div>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px">
+<div class="box live"><b>Content-addressed ids</b>Node id is the SHA-256 of type, properties and timestamp, stored with its immutable content so tampering is detectable.</div>
+<div class="box live"><b>networkx on demand</b><span class="m">ext.lineage_graph.to_networkx</span> converts the graph per query, then uses ancestors and descendants.</div>
+<div class="box dim"><b>Not persisted yet</b>The graph lives in memory for the life of the process. The SQLite save and load helpers exist but have no <span class="m">DurableDocs</span> wiring.</div>
+</div>
+
+<div class="box">
+<b>Unknown model or version</b>404 <span class="m">No lineage recorded for {model}/{version}</span>. Nothing is invented for models registered before the process started.
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1000,"height":680}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

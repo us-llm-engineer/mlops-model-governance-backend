@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Incident lifecycle and escalation</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Newsreader:wght@500;600&display=swap">
+<style>
+body{margin:0;background:#faf9f5;color:#141413;font-family:'IBM Plex Sans',system-ui,sans-serif}
+.k{font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.09em;text-transform:uppercase;color:#a8502f}
+h1{font-family:'Newsreader',Georgia,serif;font-weight:500;font-size:34px;margin:8px 0 6px;letter-spacing:-.01em}
+.sub{font-size:14px;color:#5e5d59;line-height:1.45;margin:0}
+.box{background:#fff;border:1px solid #d8d5c8;border-radius:10px;padding:10px 13px;font-size:12.5px;line-height:1.4}
+.box b{display:block;font-size:13.5px;margin-bottom:3px}
+.m{font-family:'IBM Plex Mono',monospace;font-size:11.5px;color:#5e5d59}
+.live{border-color:#2f6f6a;background:#eef5f3}
+.acc{border-color:#d1734f;background:#fbeee8}
+.tier{flex:1;min-width:0;text-align:center;border-radius:10px;padding:14px 8px;border:1.5px solid #2f6f6a;background:#eef5f3;font-size:12.5px;line-height:1.4}
+.tier b{display:block;font:600 14px/1.2 'IBM Plex Mono',monospace;margin-bottom:4px}
+.arr{color:#a8502f;font:500 20px/1 'IBM Plex Mono',monospace;align-self:center}
+</style>
+</helmet>
+<div style="width:1000px;height:680px;box-sizing:border-box;padding:34px 44px 30px;display:flex;flex-direction:column;gap:14px">
+<div>
+<div class="k">08 · Incidents</div>
+<h1>Open, work the checklist, escalate, resolve</h1>
+<p class="sub">Routes exist only because the incidents extension is now mounted at startup. The escalation worker uses a listing method added for it.</p>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:4px">
+<div class="box acc"><b>POST /v1/incidents</b><span class="m">{title, signal}</span>. The signal is classified into a severity with a response deadline.</div>
+<div class="box acc"><b>POST .../steps</b>Checklist steps must be completed in order, otherwise 409.</div>
+<div class="box acc"><b>GET /v1/incidents/{id}</b>Returns a copy of the record, tier included.</div>
+<div class="box acc"><b>POST .../resolve</b>Needs every checklist step done first; P0 and P1 also need a complete postmortem. Resolved incidents no longer escalate.</div>
+</div>
+
+<div class="box">
+<b>Severity rules, in priority order</b>
+<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:4px">
+<div><span class="m">P0</span> serving_failure or null_predictions</div>
+<div><span class="m">P1</span> accuracy_drop_pct above 10</div>
+<div><span class="m">P2</span> feature_psi above 0.3 or drift_level alert</div>
+<div><span class="m">P3</span> any other reported condition</div>
+</div>
+</div>
+
+<div>
+<div class="k" style="margin-bottom:8px">On-call tier, raised by elapsed time</div>
+<div style="display:flex;gap:10px">
+<div class="tier"><b>tier 1</b>primary, on open</div><div class="arr">→</div>
+<div class="tier"><b>tier 2</b>elapsed above the response window</div><div class="arr">→</div>
+<div class="tier"><b>tier 3</b>elapsed above twice the window</div>
+</div>
+</div>
+
+<div class="box live">
+<b>incident-escalation worker, every 60 s</b>
+<span class="m">incident_escalation_tick(manager)</span> lists open incident ids, reads each tier before, calls <span class="m">escalate_if_overdue(id)</span>, and counts the incidents whose tier rose. An audit entry is written only on a rise. Fixed here: the tick used to call <span class="m">escalate_if_overdue()</span> with no id, which the real class cannot accept.
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1000,"height":680}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
