@@ -264,50 +264,6 @@ def test_lint_manifest_cli_command_rejects_invalid_yaml(tmp_path):
     assert result.exit_code == 2
 
 
-# ---------------------------------------------------------------- casbin differential-check CLI
-
-def test_policy_differential_check_runs_a_real_cross_check(tmp_path):
-    """casbin_adapter.run_differential/build_enforcer_from_bundle/generate_requests had
-    zero callers outside their own tests (grounded as a deliberate F3 cross-check
-    library with no HTTP surface this round, but never given ANY real invocation
-    either). `mlops policy differential-check <bundle-file>` now runs it for real,
-    entirely locally, against a real PolicyDecisionPoint built from the same bundle."""
-    from typer.testing import CliRunner
-    from mlops.svc.cli import create_cli
-
-    bundle_file = tmp_path / "bundle.json"
-    bundle_file.write_text(
-        '{"name": "demo", "version": 1, "rules": ['
-        '{"id": "r1", "version": 1, "kind": "role_in", "severity": "block", '
-        '"params": {"key": "role", "roles": ["admin"], "action": "deploy", "resource": "prod"}}'
-        ']}'
-    )
-
-    runner = CliRunner()
-    app = create_cli(lambda: None)
-    result = runner.invoke(
-        app, ["policy", "differential-check", str(bundle_file), "--subject", "admin", "--subject", "guest"]
-    )
-
-    assert result.exit_code in (0, 1)  # 1 means real disagreements were found -- both are valid outcomes
-    assert '"total"' in result.output
-    assert '"agreements"' in result.output
-
-
-def test_policy_differential_check_rejects_a_malformed_bundle(tmp_path):
-    from typer.testing import CliRunner
-    from mlops.svc.cli import create_cli
-
-    bundle_file = tmp_path / "bad_bundle.json"
-    bundle_file.write_text('{"name": "demo"}')  # missing required "version"
-
-    runner = CliRunner()
-    app = create_cli(lambda: None)
-    result = runner.invoke(app, ["policy", "differential-check", str(bundle_file), "--subject", "admin"])
-
-    assert result.exit_code == 2
-
-
 # ---------------------------------------------------------------- calibration-crosscheck CLI
 
 def test_calibration_crosscheck_runs_a_real_cross_check(tmp_path):

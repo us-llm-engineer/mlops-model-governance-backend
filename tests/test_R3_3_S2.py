@@ -82,17 +82,15 @@ def test_lineage_blast_radius_count_can_be_replayed_as_typed_metadata(tmp_path):
     assert bridge.get_mirrored_run("lineage-run")["params"]["affected_nodes"] == 2
 
 
-def test_casbin_decision_can_be_replayed_as_boolean_metadata(tmp_path):
-    from mlops.interop.casbin_adapter import build_enforcer_from_bundle, enforcer_decide
+def test_policy_decision_can_be_replayed_as_boolean_metadata(tmp_path):
+    from mlops.policy_engine import PolicyDecisionPoint
 
     bundle = PolicyBundle(
         [Rule("allow-deploy", 1, "role_in", {"key": "role", "roles": ["admin"], "action": "deploy", "resource": "prod"})],
         name="f3-policy",
         version=1,
     )
-    enforcer, untranslatable = build_enforcer_from_bundle(bundle)
-    assert untranslatable == []
-    allowed = enforcer_decide(enforcer, "admin", "deploy", "prod")
+    allowed = PolicyDecisionPoint(bundle=bundle).decide("deploy", {"role": "admin", "resource": "prod"}).allow
     bridge = _bridge(tmp_path)
     bridge.mirror_experiment_run([LogEntry("param", "policy_allowed", allowed, None)], "policy-run", "f3")
     assert bridge.get_mirrored_run("policy-run")["params"]["policy_allowed"] is True
