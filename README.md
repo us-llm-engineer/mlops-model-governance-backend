@@ -96,30 +96,36 @@ Real held-out numbers from the six trainers, gated by the policy layer above on 
 
 | Dataset | Metric | Train | Test | Test rows |
 |---|---|---|---|---|
-| Fraud (binary, 0.17% positive) | AUPRC | 0.7207 | 0.3920 | 85,443 |
+| Fraud (binary, 0.17% positive) | AUPRC | 0.7207 | 0.3920¹ | 85,443 |
 | AG News (4-class text) | macro-F1 | 0.9110 | 0.9249 | 3,800 |
 | Taxi tip amount (regression) | MAE | 0.8925 | 0.8875 | 2,051,233 |
 | Jena temperature (regression) | MAE | 2.5219 | 3.1598 | 126,166 |
-| Covertype (7-class, elevation-split) | macro-F1 | 0.6458 | 0.2822 | 174,304 |
+| Covertype (7-class, elevation-split) | macro-F1 | 0.6458 | 0.2822¹ | 174,304 |
 | EuroSAT (10-class images) | macro-F1 | 0.4318 | 0.3989 | 4,860 |
+
+¹ These are the **deployed trainer's** numbers (`live_tests/train.py`, unchanged) — the same
+functions the three live-test scenarios and the policy layer above exercise. A separate
+benchmarking investigation (not a change to the deployed trainer) reaches materially better
+numbers for these two specific models — see directly below.
 
 ### Improvement experiments (most recent results)
 
 Two of the six models above (fraud, covertype) were investigated further and improved through a
 history of experiments — hyperparameter tuning, ensemble resampling, and a literature-inspired
-binary reduction with a swept weight parameter. Full history, all intermediate stages, and every
-figure: [legacy/README.md](legacy/README.md). Most recent results only, below:
+binary reduction with a swept weight parameter. These are separate benchmarking trainers
+(`live_tests/improve.py`), not changes to the deployed pipeline above. Full history, all
+intermediate stages, and every figure: [legacy/README.md](legacy/README.md). Most recent results
+only, below:
 
 | Dataset | What changed | Metric | Before | After |
 |---|---|---|---|---|
 | Fraud | `class_weight="balanced"` + validated depth | Test AUPRC | 0.3920 | **0.7204** (+84%, at a real calibration cost — see legacy/) |
 | Covertype | Binary Krummholz-vs-rest + swept class weight (w=20) | Krummholz recall | 0.0173 | **0.1349** (+680%) |
 
-![Krummholz precision/recall sweep over class weight](docs/figures/covertype_krummholz_pr_curve.png)
-<sub>Binary Krummholz-vs-rest classifier, class weight swept 1-1000. `class_weight="balanced"`'s own implied ratio (~564) lands at one of the *worst* points on this curve — the actual optimum (w=20) is only visible by sweeping, not by using the standard heuristic.</sub>
-
-![Fraud calibration after tuning](docs/figures/fraud_tuned_calibration.png)
-<sub>Fraud's calibration curve after the AUPRC-improving retune — ECE rose from 0.0019 to 0.0896, the real cost of the discrimination gain above.</sub>
+| | |
+|---|---|
+| ![Improvement summary: before vs after](docs/figures/improvement_summary.png)<br><sub>Both headline improvements side by side — fraud's AUPRC gain and covertype's Krummholz-recall gain, each roughly doubling to nearly 8x its baseline.</sub> | ![Krummholz precision/recall sweep over class weight](docs/figures/covertype_krummholz_pr_curve.png)<br><sub>Binary Krummholz-vs-rest classifier, class weight swept 1-1000. `class_weight="balanced"`'s own implied ratio (~564) lands at one of the *worst* points on this curve — the actual optimum (w=20) is only visible by sweeping.</sub> |
+| ![Fraud calibration after tuning](docs/figures/fraud_tuned_calibration.png)<br><sub>Fraud's calibration curve after the AUPRC-improving retune — ECE rose from 0.0019 to 0.0896, the real cost of the discrimination gain above.</sub> | |
 
 Covertype's honest train/test gap is the point of that scenario: an elevation-ordered split is a
 genuine, severe distribution shift (see the figure below), and the policy layer correctly denies
