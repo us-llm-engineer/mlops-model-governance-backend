@@ -1,0 +1,23 @@
+{
+  "checkpoints": {
+    "balanced_attention_cnn_v2_raw.pt": {
+      "description": "Attention model (BalancedAttnCNN) retrained from scratch, 17 epochs, L4 GPU, BN running stats NOT recalibrated (still corrupted by EuroSATDSFullAug's heavy augmentation).",
+      "drive_file_id": "1OzuU-E436XdnP4z_v-gvpH0tPdbpFnXu",
+      "drive_path": "MyDrive/eurosat_cnn_checkpoints/balanced_attention_cnn_v2_raw.pt",
+      "size_bytes": 6799643,
+      "clean_val_macro_f1": 0.2418226465754179,
+      "note": "Not the model to evaluate or deploy -- kept only as the pre-recalibration reference point (train() vs eval() mode diagnostic in attn_v2_result.json used this checkpoint's weights)."
+    },
+    "balanced_attention_cnn_v2_recalibrated.pt": {
+      "description": "Same weights as _raw.pt, BatchNorm running stats recalibrated via recalibrate_bn() on clean training data (12s, weights frozen).",
+      "drive_file_id": "1PzZ1MjTjKC3p5uyXrQ5YenIP-1HZKetx",
+      "drive_path": "MyDrive/eurosat_cnn_checkpoints/balanced_attention_cnn_v2_recalibrated.pt",
+      "size_bytes": 6802335,
+      "test_macro_f1": 0.5522629093036483,
+      "test_accuracy": 0.5788888888888889,
+      "note": "This is the model to use for any further eval/deployment of the v2 retrain."
+    }
+  },
+  "source_result_file": "attn_v2_result.json",
+  "verified": "Drive file existence and sizes confirmed via Google Drive MCP search_files on 2026-09-28, not assumed from absence of a training-cell error."
+}

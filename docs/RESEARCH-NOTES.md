@@ -144,6 +144,65 @@ available, not a claim that validation selection is unbiased here. This is discl
 hidden because the alternative — reporting only the test-set number without the caveat — would
 overstate how much the sweep methodology itself can be trusted going forward.
 
+## Improvement experiment 3: EuroSAT CNN reproduction, attention fusion, and in-training diagnostics
+
+A third improvement experiment, alongside fraud and covertype above: replacing the deployed
+PCA(50)+LogisticRegression EuroSAT classifier (0.3989 test macro-F1) with two CNNs — a plain
+baseline and a toned-down reproduction of a balanced multi-task attention architecture
+(arXiv:2510.15527) — trained and evaluated on Colab GPU. Full stage write-up, figures, and both
+models' code: [legacy/README.md](../legacy/README.md).
+
+- **Coordinate Attention** ([arXiv:2103.02907](https://arxiv.org/abs/2103.02907)) and
+  **Squeeze-and-Excitation** ([arXiv:1709.01507](https://arxiv.org/abs/1709.01507)) — the two
+  attention mechanisms the reproduction target paper fuses per residual block via a learnable
+  scalar `sigmoid(alpha)`. That fusion mechanism (the alpha gate itself) is the reproduction
+  paper's own design, not something either source paper does independently — confirmed by direct
+  query, not assumed. After 17 epochs (an intentionally short "quick report" run, not a full
+  training budget) every block's alpha sat at 0.38-0.50, still close to the neutral 0.5
+  initialization and below the reproduction paper's own reported ~0.57 convergence value — reported
+  honestly as under-convergence, not presented as a mismatch with the architecture.
+- **Grad-CAM** ([arXiv:1610.02391](https://arxiv.org/abs/1610.02391)) and **Zeiler & Fergus's
+  occlusion sensitivity** ([arXiv:1311.2901](https://arxiv.org/abs/1311.2901)) — both applied to the
+  baseline CNN only (the paper-confirmed correct target for a plain conv stack; the attention
+  model's gated blocks weren't validated for this). Caveat carried through explicitly: this
+  project's 64x64 input produces an 8x8 last-conv feature map for Grad-CAM, smaller than anything
+  validated in the original paper's own experiments (7x14x14 on 224x224 input) — an honest
+  extrapolation, not a proven-safe use case.
+- **A visualization-fidelity correction, found by inspection, not assumed.** Zeiler & Fergus's own
+  first-layer-filter diagnostic (visualizing AlexNet's 11x11 filters revealed dead/aliased features,
+  directly motivating a real architecture change — filter size 11→7, a 2.1-point top-1 error
+  improvement) does not transfer to this project's 3x3-kernel CNNs: a 3x3 patch is mathematically
+  too small to ever display the edge-orientation structure that diagnostic depends on. The rendered
+  filter visualizations are correct (right layer, right weights, standard per-filter normalization)
+  but cannot answer "do these look like edge detectors" the way the original paper's larger filters
+  could — caught only after directly inspecting the rendered image and finding the docstring's claim
+  didn't hold up, not caught during the initial literature pass. The per-layer weight-histogram
+  visualization is the architecture-appropriate health check instead.
+- **DeepTracker** ([arXiv:1808.08531](https://arxiv.org/abs/1808.08531)) and **In situ TensorView**
+  ([arXiv:1806.07382](https://arxiv.org/abs/1806.07382)) — the in-training diagnostics. An initial
+  implementation logged a per-*epoch* aggregate weight-change norm and a per-epoch accuracy gap,
+  which turned out on later re-query to be roughly 300x coarser than TensorView's actual method
+  (3 specific raw weight scalars plotted as a 3D trajectory, updated every training *step*) and not
+  DeepTracker's actual mechanism (a per-image binary correctness history checked against a
+  sliding-window rule, not a plain scalar gap). Both were rebuilt to the papers' real granularity
+  and mechanism, unit-tested against synthetic data with known-correct expected outputs before use,
+  and rerun. The rebuilt diagnostics caught the same BatchNorm running-statistics/heavy-augmentation
+  mismatch found in the original training run — this time live, mid-training (a widening train/
+  clean-validation accuracy gap, 0.33→0.47 over the run), rather than only after a separate
+  post-hoc evaluation.
+
+**Results, both models, real held-out test set (4,860 rows):**
+
+| Model | Test macro-F1 | Notes |
+|---|---|---|
+| Deployed PCA(50)+LogisticRegression | 0.3989 | unchanged, `live_tests/train.py` |
+| Baseline CNN (3-block conv-BN-ReLU) | **0.9536** | 30 epochs, well-converged |
+| Balanced-attention CNN (CoordAttn+SE) | 0.5522 | 17 epochs, under-converged — currently *below* the simpler baseline in this run, reported as-is |
+
+Hardware: NVIDIA Tesla T4 and NVIDIA L4, both via Google Colab (free/pay-as-you-go GPU runtimes,
+no local CUDA available in this environment). The attention model's final 17-epoch run measured
+247s (4.1 min) training + 9.4s BatchNorm recalibration on an L4.
+
 ## What has no published answer
 
 No paper read for this pipeline gives a promotion-refusal threshold for any specific metric —

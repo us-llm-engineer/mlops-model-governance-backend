@@ -106,36 +106,46 @@ Real held-out numbers from the six trainers, gated by the policy layer above on 
 ¹ These are the **deployed trainer's** numbers (`live_tests/train.py`, unchanged) — the same
 functions the three live-test scenarios and the policy layer above exercise. A separate
 benchmarking investigation (not a change to the deployed trainer) reaches materially better
-numbers for these two specific models — see directly below.
+numbers for these three specific models — see directly below.
 
 ### Improvement experiments (most recent results)
 
-Two of the six models above (fraud, covertype) were investigated further and improved through a
-history of experiments — hyperparameter tuning, ensemble resampling, and a literature-inspired
-binary reduction with a swept weight parameter. These are separate benchmarking trainers
-(`live_tests/improve.py`), not changes to the deployed pipeline above. Full history, all
-intermediate stages, and every figure: [legacy/README.md](legacy/README.md). Most recent results
-only, below:
+Three of the six models above (fraud, covertype, EuroSAT) were investigated further and improved
+through a history of experiments — hyperparameter tuning, ensemble resampling, a
+literature-inspired binary reduction with a swept weight parameter, and (for EuroSAT) a full CNN
+reproduction with in-training and post-training diagnostics. These are separate benchmarking
+trainers, not changes to the deployed pipeline above. Full history, all intermediate stages, and
+every figure: [legacy/README.md](legacy/README.md). Most recent results only, below:
 
 | Dataset | What changed | Metric | Before | After |
 |---|---|---|---|---|
 | Fraud | `class_weight="balanced"` + validated depth | Test AUPRC | 0.3920 | **0.7203** (+84%, at a real calibration cost — see legacy/) |
 | Covertype | `class_weight="balanced"` + validated depth (10) | Test macro-F1 | 0.2822 | **0.4051** (+43.6%) |
 | Covertype | Binary Krummholz-vs-rest + swept class weight (w=20) | Krummholz recall | 0.0173 | **0.1349** (+680%, a separate experiment — the two Covertype rows are not sequential, see legacy/) |
+| EuroSAT | Baseline CNN vs. deployed PCA(50)+LogReg | Test macro-F1 | 0.3989 | **0.9536** (+139%, well-converged, 30 epochs) |
+| EuroSAT | Balanced-attention CNN (CoordAttn+SE), 17 epochs | Test macro-F1 | 0.3989 | 0.5522 (under-converged — reported as-is, currently *below* the simpler baseline CNN above, not cherry-picked) |
 
 | | |
 |---|---|
 | ![Improvement summary: before vs after](docs/figures/improvement_summary.png)<br><sub>All three headline improvements side by side — fraud's AUPRC gain, covertype's aggregate macro-F1 gain, and covertype's Krummholz-recall gain (the latter two are separate, non-sequential experiments).</sub> | ![Krummholz precision/recall sweep over class weight](docs/figures/covertype_krummholz_pr_curve.png)<br><sub>Binary Krummholz-vs-rest classifier, class weight swept 1-1000. `class_weight="balanced"`'s own implied ratio (~564) lands at one of the *worst* points on this curve — the actual optimum (w=20) is only visible by sweeping.</sub> |
-| ![Fraud calibration after tuning](docs/figures/fraud_tuned_calibration.png)<br><sub>Fraud's calibration curve after the AUPRC-improving retune — ECE rose from 0.0019 to 0.0896, the real cost of the discrimination gain above.</sub> | |
+| ![Fraud calibration after tuning](docs/figures/fraud_tuned_calibration.png)<br><sub>Fraud's calibration curve after the AUPRC-improving retune — ECE rose from 0.0019 to 0.0896, the real cost of the discrimination gain above.</sub> | ![EuroSAT attention-model training curves](docs/figures/eurosat_training_curves.png)<br><sub>Loss/accuracy per epoch plus the train/clean-validation gap widening live (0.33→0.47) — the same BatchNorm/heavy-augmentation mismatch from the baseline incident, this time caught mid-training by the rebuilt diagnostics instead of only after.</sub> |
+| ![EuroSAT weight trajectory (In situ TensorView style)](docs/figures/eurosat_weight_trajectory_3d.png)<br><sub>3 raw weight scalars plotted as a 3D path over ~4,500 training steps, colored by time — a paper-faithful reproduction of TensorView's actual mechanism, not a summary statistic.</sub> | |
 
 Covertype's honest train/test gap is the point of that scenario: an elevation-ordered split is a
 genuine, severe distribution shift (see the figure below), and the policy layer correctly denies
 promotion on the real number rather than a flattering one.
 
+**Hardware used (EuroSAT CNN training):** NVIDIA Tesla T4 and NVIDIA L4, both via Google Colab —
+no local CUDA available in this environment. The final 17-epoch attention-model run measured 247s
+(4.1 min) training + 9.4s BatchNorm recalibration on an L4. All 5 model checkpoints:
+[shared Google Drive folder](https://drive.google.com/drive/folders/1onzEVzL6x5wMEhrklJMoWm7QOW8NssTd?usp=sharing)
+(not committed here — no Git LFS in this repo). Full write-up, both models' code, all 12 figures,
+and raw statistics: [legacy/README.md](legacy/README.md).
+
 ### Figures
 
 One data-understanding chart and one post-training diagnostic per dataset (12 figures in the table
-below), plus the 3 improvement-experiment figures above — the full run also produces per-class
+below), plus the 5 improvement-experiment figures above — the full run also produces per-class
 metrics, permutation importance, and training curves for every model (see
 `docs/RESEARCH-NOTES.md` and `live_tests/stats.py`).
 

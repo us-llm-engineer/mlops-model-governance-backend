@@ -1,0 +1,25 @@
+{
+  "architecture": "baseline 3-block CNN (paper Model 1 equivalent): Conv3x3-BN-ReLU-MaxPool [32,64,128] -> GAP -> FC(512) -> Dropout(0.5) -> FC(10)",
+  "n_params": 164874,
+  "test_macro_f1": 0.9536085195763813,
+  "test_accuracy": 0.9550617283950618,
+  "confidence_correct": 0.9680920839309692,
+  "confidence_incorrect": 0.6834428310394287,
+  "confidence_gap": 0.2846492528915405,
+  "gpu_name": "Tesla T4",
+  "wall_seconds_training": 145.2011215686798,
+  "per_class": {
+    "AnnualCrop": {"precision": 0.950, "recall": 0.949, "f1-score": 0.949},
+    "Forest": {"precision": 0.990, "recall": 0.986, "f1-score": 0.988},
+    "HerbaceousVegetation": {"precision": 0.925, "recall": 0.935, "f1-score": 0.930},
+    "Highway": {"precision": 0.940, "recall": 0.934, "f1-score": 0.937},
+    "Industrial": {"precision": 0.964, "recall": 0.970, "f1-score": 0.967},
+    "Pasture": {"precision": 0.924, "recall": 0.949, "f1-score": 0.936},
+    "PermanentCrop": {"precision": 0.927, "recall": 0.938, "f1-score": 0.932},
+    "Residential": {"precision": 0.991, "recall": 0.990, "f1-score": 0.991},
+    "River": {"precision": 0.943, "recall": 0.902, "f1-score": 0.922},
+    "SeaLake": {"precision": 0.980, "recall": 0.987, "f1-score": 0.984}
+  },
+  "notes": "70/30 split, seed=0, same class-balanced shuffle as train_eurosat_classifier -> same held-out 8100 test images as the PCA+LogReg full-dataset run. Not the paper's own 70/15/15 seed-42 split -- an architecture reproduction on our pipeline, not a bit-exact replication of their reported 94.30%.",
+  "paper_reported_baseline_accuracy": 0.9430
+}

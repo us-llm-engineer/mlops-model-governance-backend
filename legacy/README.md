@@ -108,6 +108,80 @@ not curated); see [docs/RESEARCH-NOTES.md](../docs/RESEARCH-NOTES.md) for the ho
 validation-based weight selection is itself uninformative for this class (the val window recreates
 the same zero-overlap problem one level down between train and validation).
 
+## EuroSAT: CNN reproduction, attention fusion, and in-training diagnostics
+
+Replaces the question "can a CNN beat the deployed PCA(50)+LogisticRegression EuroSAT classifier"
+with two real, trained, evaluated answers: a plain baseline CNN, and a toned-down reproduction of
+a balanced multi-task attention architecture (arXiv:2510.15527, CoordAttn + SE fused per block via
+a learnable `sigmoid(alpha)` gate). Code: [`eurosat_cnn.py`](eurosat_cnn.py) (architecture,
+training, all interpretability functions) and
+[`eurosat_test_in_training_viz.py`](eurosat_test_in_training_viz.py) (12 tests against the real
+in-training-diagnostic classes, synthetic data with known-correct expected outputs, all passing).
+Full paper grounding, including two honest self-corrections found during this work:
+[docs/RESEARCH-NOTES.md](../docs/RESEARCH-NOTES.md#improvement-experiment-3-eurosat-cnn-reproduction-attention-fusion-and-in-training-diagnostics).
+
+### Results
+
+| Model | Test macro-F1 | Epochs | Notes |
+|---|---|---|---|
+| Deployed PCA(50)+LogisticRegression | 0.3989 | — | unchanged, `live_tests/train.py` |
+| Baseline CNN | **0.9536** | 30 | 3-block conv-BN-ReLU-maxpool, well-converged |
+| Balanced-attention CNN | 0.5522 | 17 | CoordAttn+SE, an intentionally short "quick report" run — under-converged, currently below the simpler baseline CNN, reported as-is |
+
+### The BatchNorm/heavy-augmentation incident, found, diagnosed, and defended against
+
+The attention model's heavy training-time augmentation (rotation, color jitter, blur, random
+erasing) corrupted its BatchNorm running statistics relative to clean evaluation images — the
+model looked healthy on training data (train_acc climbing normally) while scoring far worse under
+real (`model.eval()`) evaluation than under `model.train()` batch statistics, on the *identical*
+weights and batch. Confirmed causally (train-mode vs. eval-mode accuracy on one fixed batch, only
+the mode changed), not assumed. Fixed by BatchNorm recalibration — a 9.4s forward-only pass over
+clean training data, no weight changes — which alone took the attention model from 0.2418 (clean
+validation, pre-recalibration) to 0.5522 (real test set, post-recalibration).
+
+That incident directly motivated the in-training diagnostics below, so the same class of problem
+gets caught live next time instead of only after a separate post-hoc evaluation:
+
+- **`WeightTrajectoryTracker`** — 3 raw weight scalars from the first conv layer, recorded every
+  training step (~4,500 points over the 17-epoch run), reproducing In situ TensorView's
+  (arXiv:1806.07382) actual mechanism, not a coarser per-epoch summary.
+- **`LeftRuleAnomalyDetector`** — DeepTracker's (arXiv:1808.08531) actual per-image binary
+  correctness history checked against a sliding-window rule, not a plain accuracy-gap scalar.
+
+| | |
+|---|---|
+| ![Training curves + live train/val gap](figures/eurosat_training_curves.png)<br><sub>Train loss/accuracy climb normally while clean-validation accuracy stays flat — the gap (0.33→0.47) is the BatchNorm mismatch, caught live this time.</sub> | ![Weight trajectory, TensorView style](figures/eurosat_weight_trajectory_3d.png)<br><sub>3 raw weight scalars over ~4,500 steps, colored by time — the trajectory tightens as training converges, not a frozen/diverging path.</sub> |
+| ![Anomaly violations by class](figures/eurosat_anomaly_violations_by_class.png)<br><sub>DeepTracker-style left-rule violations, only classes with any violation shown (Industrial 7, AnnualCrop 3, SeaLake 2). The other 7 classes — Forest, HerbaceousVegetation, Highway, Pasture, PermanentCrop, Residential, River — had exactly zero violations across all 4 checkpoints; omitted from the chart rather than plotted as empty bars.</sub> | |
+
+### Post-training interpretability
+
+| | |
+|---|---|
+| ![Baseline first-layer filters](figures/eurosat_baseline_filters.png)<br><sub>Every learned 3x3 first-conv filter as an RGB patch. Correctly rendered, but a real limitation found by inspection: a 3x3 kernel is too small to show the edge-detector structure Zeiler & Fergus's own diagnostic (built on AlexNet's 11x11 filters) depends on — see RESEARCH-NOTES.md for the full correction.</sub> | ![Baseline weight histograms](figures/eurosat_baseline_weight_hist.png)<br><sub>Per-layer weight distributions — the architecture-appropriate health check for a 3x3-kernel network (no collapsed/saturated layers).</sub> |
+| ![Attention model first-layer filters](figures/eurosat_attn_filters.png)<br><sub>Same visualization, attention model's stem layer.</sub> | ![Attention model weight histograms](figures/eurosat_attn_weight_hist.png)<br><sub>Attention model's per-layer weight distributions, post BN-recalibration.</sub> |
+| ![Grad-CAM, baseline model](figures/eurosat_gradcam_baseline.png)<br><sub>2 examples per class. Caveat: 64x64 input gives an 8x8 last-conv feature map, smaller than anything validated in the original Grad-CAM paper (7x14x14 on 224x224) — an honest extrapolation.</sub> | ![Occlusion sensitivity, baseline model](figures/eurosat_occlusion_sensitivity.png)<br><sub>Zeiler & Fergus-style causal check — predicted-class probability as a grey patch sweeps the image.</sub> |
+
+### Dataset understanding (independent of any trained model)
+
+| | |
+|---|---|
+| ![Class prototypes](figures/eurosat_class_prototypes.png)<br><sub>Per-class mean image — the typical visual signature per class, independent of any one example.</sub> | ![Raw-pixel PCA embedding](figures/eurosat_raw_pixel_pca.png)<br><sub>PCA(2) on raw normalized pixels — the same feature representation the deployed PCA+LogReg baseline uses, before any CNN touches the data.</sub> |
+| ![Confused-pair gallery](figures/eurosat_confused_pairs_gallery.png)<br><sub>Top-3 most-confused class pairs on the attention model's confusion matrix (top: Forest/SeaLake, 771 confusions) — differs from the reproduction paper's own most-confused pair, most plausibly an under-convergence artifact given the attention model's macro-F1 (0.55) vs. the baseline's (0.95), reported honestly rather than presented as a literature match.</sub> | |
+
+### Hardware, checkpoints, and raw statistics
+
+Trained on **NVIDIA Tesla T4** and **NVIDIA L4** (both via Google Colab; no local CUDA in this
+environment). The final 17-epoch attention-model run measured 247s (4.1 min) training + 9.4s
+BatchNorm recalibration on an L4.
+
+All 5 checkpoints (baseline; the final recalibrated attention model; its pre-recalibration raw
+version; and the two checkpoints from the original BatchNorm-mismatch incident, kept per this
+project's own "never delete, migrate as legacy" discipline) are published via
+[this shared Google Drive folder](https://drive.google.com/drive/folders/1onzEVzL6x5wMEhrklJMoWm7QOW8NssTd?usp=sharing)
+rather than committed into git history (no LFS in this repo; keeps the tree lean). Raw statistics
+(full per-epoch history, all ~4,500 weight-trajectory points, the anomaly log, checkpoint
+metadata) are in [`eurosat_stats/`](eurosat_stats/) as plain JSON.
+
 ## Summary: what actually worked
 
 | Problem | What helped | What didn't |
@@ -116,3 +190,4 @@ the same zero-overlap problem one level down between train and validation).
 | Fraud calibration | — | Class weighting (47x worse ECE, a real cost of the AUPRC gain) |
 | Covertype aggregate macro-F1 | Class weighting + tuning (+43% relative) | — |
 | Covertype Krummholz recall specifically | Binary reduction + swept weight (+680% relative) | Multiclass class weighting (made it worse); ensemble resampling alone (smaller gain); `class_weight="balanced"` as a single heuristic (one of the worst points in the sweep) |
+| EuroSAT test macro-F1 | A CNN at all (+139% relative, baseline CNN vs. deployed PCA+LogReg) | The more complex attention architecture, at only 17 epochs (0.5522, below the simpler baseline — needs a longer run, not a re-architecture) |
