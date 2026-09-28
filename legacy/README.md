@@ -139,19 +139,19 @@ the mode changed), not assumed. Fixed by BatchNorm recalibration — a 9.4s forw
 clean training data, no weight changes — which alone took the attention model from 0.2418 (clean
 validation, pre-recalibration) to 0.5522 (real test set, post-recalibration).
 
-That incident directly motivated the in-training diagnostics below, so the same class of problem
+That incident directly motivated the in-training diagnostic below, so the same class of problem
 gets caught live next time instead of only after a separate post-hoc evaluation:
 
 - **`WeightTrajectoryTracker`** — 3 raw weight scalars from the first conv layer, recorded every
   training step (~4,500 points over the 17-epoch run), reproducing In situ TensorView's
   (arXiv:1806.07382) actual mechanism, not a coarser per-epoch summary.
-- **`LeftRuleAnomalyDetector`** — DeepTracker's (arXiv:1808.08531) actual per-image binary
-  correctness history checked against a sliding-window rule, not a plain accuracy-gap scalar.
+- A periodic clean-validation evaluation (every few epochs, `eval()` mode on held-out clean data)
+  is the mechanism that actually caught the BatchNorm mismatch live, via the widening train/
+  clean-validation accuracy gap below.
 
 | | |
 |---|---|
 | ![Training curves + live train/val gap](figures/eurosat_training_curves.png)<br><sub>Train loss/accuracy climb normally while clean-validation accuracy stays flat — the gap (0.33→0.47) is the BatchNorm mismatch, caught live this time.</sub> | ![Weight trajectory, TensorView style](figures/eurosat_weight_trajectory_3d.png)<br><sub>3 raw weight scalars over ~4,500 steps, colored by time — the trajectory tightens as training converges, not a frozen/diverging path.</sub> |
-| ![Anomaly violations by class](figures/eurosat_anomaly_violations_by_class.png)<br><sub>DeepTracker-style left-rule violations, only classes with any violation shown (Industrial 7, AnnualCrop 3, SeaLake 2). The other 7 classes — Forest, HerbaceousVegetation, Highway, Pasture, PermanentCrop, Residential, River — had exactly zero violations across all 4 checkpoints; omitted from the chart rather than plotted as empty bars.</sub> | |
 
 ### Post-training interpretability
 
@@ -159,7 +159,8 @@ gets caught live next time instead of only after a separate post-hoc evaluation:
 |---|---|
 | ![Baseline first-layer filters](figures/eurosat_baseline_filters.png)<br><sub>Every learned 3x3 first-conv filter as an RGB patch. Correctly rendered, but a real limitation found by inspection: a 3x3 kernel is too small to show the edge-detector structure Zeiler & Fergus's own diagnostic (built on AlexNet's 11x11 filters) depends on — see RESEARCH-NOTES.md for the full correction.</sub> | ![Baseline weight histograms](figures/eurosat_baseline_weight_hist.png)<br><sub>Per-layer weight distributions — the architecture-appropriate health check for a 3x3-kernel network (no collapsed/saturated layers).</sub> |
 | ![Attention model first-layer filters](figures/eurosat_attn_filters.png)<br><sub>Same visualization, attention model's stem layer.</sub> | ![Attention model weight histograms](figures/eurosat_attn_weight_hist.png)<br><sub>Attention model's per-layer weight distributions, post BN-recalibration.</sub> |
-| ![Grad-CAM, baseline model](figures/eurosat_gradcam_baseline.png)<br><sub>2 examples per class. Caveat: 64x64 input gives an 8x8 last-conv feature map, smaller than anything validated in the original Grad-CAM paper (7x14x14 on 224x224) — an honest extrapolation.</sub> | ![Occlusion sensitivity, baseline model](figures/eurosat_occlusion_sensitivity.png)<br><sub>Zeiler & Fergus-style causal check — predicted-class probability as a grey patch sweeps the image.</sub> |
+| ![Grad-CAM, baseline model, classes 1-5](figures/eurosat_gradcam_baseline_part1.png)<br><sub>Grad-CAM, 2 examples per class (AnnualCrop-Industrial). Caveat: 64x64 input gives an 8x8 last-conv feature map, smaller than anything validated in the original Grad-CAM paper (7x14x14 on 224x224) — an honest extrapolation.</sub> | ![Grad-CAM, baseline model, classes 6-10](figures/eurosat_gradcam_baseline_part2.png)<br><sub>Grad-CAM, 2 examples per class (Pasture-SeaLake), same caveat as above.</sub> |
+| ![Occlusion sensitivity, baseline model](figures/eurosat_occlusion_sensitivity.png)<br><sub>Zeiler & Fergus-style causal check — predicted-class probability as a grey patch sweeps the image.</sub> | |
 
 ### Dataset understanding (independent of any trained model)
 
@@ -179,8 +180,8 @@ version; and the two checkpoints from the original BatchNorm-mismatch incident, 
 project's own "never delete, migrate as legacy" discipline) are published via
 [this shared Google Drive folder](https://drive.google.com/drive/folders/1onzEVzL6x5wMEhrklJMoWm7QOW8NssTd?usp=sharing)
 rather than committed into git history (no LFS in this repo; keeps the tree lean). Raw statistics
-(full per-epoch history, all ~4,500 weight-trajectory points, the anomaly log, checkpoint
-metadata) are in [`eurosat_stats/`](eurosat_stats/) as plain JSON.
+(full per-epoch history, all ~4,500 weight-trajectory points, checkpoint metadata) are in
+[`eurosat_stats/`](eurosat_stats/) as plain JSON.
 
 ## Summary: what actually worked
 

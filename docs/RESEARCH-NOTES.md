@@ -178,18 +178,16 @@ models' code: [legacy/README.md](../legacy/README.md).
   could — caught only after directly inspecting the rendered image and finding the docstring's claim
   didn't hold up, not caught during the initial literature pass. The per-layer weight-histogram
   visualization is the architecture-appropriate health check instead.
-- **DeepTracker** ([arXiv:1808.08531](https://arxiv.org/abs/1808.08531)) and **In situ TensorView**
-  ([arXiv:1806.07382](https://arxiv.org/abs/1806.07382)) — the in-training diagnostics. An initial
-  implementation logged a per-*epoch* aggregate weight-change norm and a per-epoch accuracy gap,
-  which turned out on later re-query to be roughly 300x coarser than TensorView's actual method
-  (3 specific raw weight scalars plotted as a 3D trajectory, updated every training *step*) and not
-  DeepTracker's actual mechanism (a per-image binary correctness history checked against a
-  sliding-window rule, not a plain scalar gap). Both were rebuilt to the papers' real granularity
-  and mechanism, unit-tested against synthetic data with known-correct expected outputs before use,
-  and rerun. The rebuilt diagnostics caught the same BatchNorm running-statistics/heavy-augmentation
-  mismatch found in the original training run — this time live, mid-training (a widening train/
-  clean-validation accuracy gap, 0.33→0.47 over the run), rather than only after a separate
-  post-hoc evaluation.
+- **In situ TensorView** ([arXiv:1806.07382](https://arxiv.org/abs/1806.07382)) — the in-training
+  weight-trajectory diagnostic. An initial implementation logged a per-*epoch* aggregate
+  weight-change norm, which turned out on later re-query to be roughly 300x coarser than
+  TensorView's actual method (3 specific raw weight scalars plotted as a 3D trajectory, updated
+  every training *step*). Rebuilt to the paper's real granularity and mechanism, unit-tested
+  against synthetic data with known-correct expected outputs before use, and rerun. Separately, a
+  periodic clean-validation evaluation (every few epochs, in `eval()` mode on held-out clean data)
+  caught the same BatchNorm running-statistics/heavy-augmentation mismatch found in the original
+  training run — this time live, mid-training (a widening train/clean-validation accuracy gap,
+  0.33→0.47 over the run), rather than only after a separate post-hoc evaluation.
 
 **Results, both models, real held-out test set (4,860 rows):**
 

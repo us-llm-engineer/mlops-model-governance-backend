@@ -432,78 +432,32 @@ class WeightTrajectoryTracker:
         )
 
 
-def per_image_correctness(model, dl, device) -> np.ndarray:
-    """Per-image correct/incorrect array (bool), in the DataLoader's fixed iteration order --
-    required by LeftRuleAnomalyDetector below. dl must use shuffle=False for the order to be
-    stable across repeated calls."""
-    model.eval()
-    correct = []
-    with torch.no_grad():
-        for xb, yb in dl:
-            pred = model(xb.to(device)).argmax(1).cpu()
-            correct.append((pred == yb).numpy())
-    return np.concatenate(correct)
-
-
-class LeftRuleAnomalyDetector:
-    """Faithful implementation of DeepTracker's left-rule anomaly detection (arXiv:1808.08531,
-    exact algorithm per the 2026-09-28 Elicit implementation-grade re-query): each validation
-    image has a binary correctness history a_{i,t} in {0,1}. Over a sliding window of the
-    preceding `k` sampled checkpoints, if an image's correctness value stayed constant, the rule
-    predicts it continues; a violation at the current checkpoint is an image-level anomaly. Class
-    score L_{c,t} = count of rule-violating images in class c at checkpoint t. The paper does not
-    report a specific numeric value for k (user-selected) -- k=3 is this project's own choice,
-    sized for a 40-epoch run with checkpoints every few epochs, not copied from the paper."""
-
-    def __init__(self, labels: np.ndarray, k: int = 3):
-        self.labels = labels
-        self.k = k
-        self.history = np.zeros((len(labels), 0), dtype=np.int8)
-        self.log: list[dict] = []
-
-    def update(self, t: int, correct: np.ndarray) -> dict:
-        self.history = np.concatenate([self.history, correct.reshape(-1, 1).astype(np.int8)], axis=1)
-        result = {"t": t, "class_violation_counts": {}, "total_violations": 0}
-        if self.history.shape[1] > self.k:
-            window = self.history[:, -(self.k + 1):-1]
-            current = self.history[:, -1]
-            constant = np.all(window == window[:, [0]], axis=1)
-            violation = constant & (current != window[:, 0])
-            for c in sorted(set(self.labels.tolist())):
-                mask = self.labels == c
-                result["class_violation_counts"][int(c)] = int(violation[mask].sum())
-            result["total_violations"] = int(violation.sum())
-        self.log.append(result)
-        return result
-
-
 def train_attention_cnn_v2(X_train, y_train, X_test, y_test, device, epochs: int = 40,
                             val_frac: float = 0.10, eval_every: int = 5):
     """Careful retraining, informed directly by this session's BN-mismatch incident and the
-    in-training-visualization research that followed it (ConceptEvo/DeepTracker/In situ TensorView,
-    logged in RESEARCH-NOTES.md under eurosat-training-viz-q5/q6/q8). Differences from
-    train_attention_cnn (kept, not deleted, per this project's standing legacy discipline):
+    in-training-visualization research that followed it (In situ TensorView, logged in
+    RESEARCH-NOTES.md under eurosat-training-viz-q5/q6/q8). Differences from train_attention_cnn
+    (kept, not deleted, per this project's standing legacy discipline):
 
     1. A clean validation slice is carved from the END of the shuffled train block (this project's
        standing time-forward-style discipline: validation never touches the real test set) and
-       evaluated in eval() mode (real BN running stats) every `eval_every` epochs -- exactly the
-       train-vs-eval gap monitoring DeepTracker and ConceptEvo both do (eurosat-training-viz-q6),
-       which would have surfaced the augmented-vs-clean BN mismatch mid-training instead of only
-       after, via a completely different, independent mechanism from item 2 below.
+       evaluated in eval() mode (real BN running stats) every `eval_every` epochs -- a direct
+       train-vs-eval gap monitor, which would have surfaced the augmented-vs-clean BN mismatch
+       mid-training instead of only after, via a completely different, independent mechanism from
+       item 2 below.
     2. `bn_running_var_mean` and `weight_update_norm` are logged every epoch -- the specific
        BatchNorm-statistics signal the literature review found is a genuine blind spot in existing
-       in-training-visualization tools (none of the three papers track it), plus the cheap
-       gradient-health proxy motivated by In situ TensorView's own case study.
+       in-training-visualization tools, plus the cheap gradient-health proxy motivated by In situ
+       TensorView's own case study.
     3. A single, honestly-sized epoch budget (default 40, not the previous run's improvised
        15-then-6-more) with one CosineAnnealingLR schedule -- the previous run's train_loss was
        still falling with no plateau at epoch 21, so this session's evidence is that more epochs
        under one coherent schedule is the right lever, not a structural change (see the plan's
        Part A.4 architecture reflection).
-    4. WeightTrajectoryTracker (updated every training STEP) and LeftRuleAnomalyDetector (updated
-       every `eval_every` epochs on the clean val set) are the paper-faithful upgrades over
-       bn_running_var_mean/weight_update_norm's epoch-level aggregates -- added after an explicit
-       fidelity audit found the original two diagnostics only "inspired by" TensorView/DeepTracker,
-       not implementing their actual mechanisms (RESEARCH-NOTES.md, 2026-09-28 Elicit re-query).
+    4. WeightTrajectoryTracker (updated every training STEP) is the paper-faithful upgrade over
+       weight_update_norm's epoch-level aggregate -- added after an explicit fidelity audit found
+       the original diagnostic only "inspired by" TensorView, not implementing its actual mechanism
+       (RESEARCH-NOTES.md, 2026-09-28 Elicit re-query).
     """
     rng_val = np.random.default_rng(1)  # independent from the train/test split's seed=0
     order = rng_val.permutation(len(X_train))
@@ -526,7 +480,6 @@ def train_attention_cnn_v2(X_train, y_train, X_test, y_test, device, epochs: int
     history = []
     prev_state = None
     trajectory = WeightTrajectoryTracker(model)  # per-step, TensorView-faithful
-    anomaly_detector = LeftRuleAnomalyDetector(y_val)  # per-eval_every, DeepTracker-faithful
     t0 = time.time()
     for epoch in range(epochs):
         model.train()
@@ -559,17 +512,12 @@ def train_attention_cnn_v2(X_train, y_train, X_test, y_test, device, epochs: int
 
         if (epoch + 1) % eval_every == 0 or epoch == epochs - 1:
             _, _, _, val_report, _ = evaluate(model, val_dl, device)
-            correct = per_image_correctness(model, val_dl, device)
-            anomaly_result = anomaly_detector.update(epoch, correct)
-            entry["anomaly_total_violations"] = anomaly_result["total_violations"]
-            entry["anomaly_class_violation_counts"] = anomaly_result["class_violation_counts"]
             entry["clean_val_macro_f1"] = val_report["macro avg"]["f1-score"]
             entry["clean_val_accuracy"] = val_report["accuracy"]
             entry["train_eval_gap"] = entry["train_acc"] - entry["clean_val_accuracy"]
             print(f"epoch {epoch+1}/{epochs} | train_loss {entry['train_loss']:.4f} "
                   f"train_acc {entry['train_acc']:.4f} | clean_val_f1 {entry['clean_val_macro_f1']:.4f} "
-                  f"clean_val_acc {entry['clean_val_accuracy']:.4f} | anomaly_violations "
-                  f"{entry['anomaly_total_violations']} | {time.time()-t0:.0f}s elapsed", flush=True)
+                  f"clean_val_acc {entry['clean_val_accuracy']:.4f} | {time.time()-t0:.0f}s elapsed", flush=True)
         else:
             print(f"epoch {epoch+1}/{epochs} | train_loss {entry['train_loss']:.4f} "
                   f"train_acc {entry['train_acc']:.4f} | {time.time()-t0:.0f}s elapsed", flush=True)
@@ -577,7 +525,7 @@ def train_attention_cnn_v2(X_train, y_train, X_test, y_test, device, epochs: int
         history.append(entry)
 
     wall_seconds = time.time() - t0
-    return model, history, wall_seconds, trajectory, anomaly_detector
+    return model, history, wall_seconds, trajectory
 
 
 def recalibrate_bn(model, X_train, y_train, device):
