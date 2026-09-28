@@ -108,6 +108,121 @@ not curated); see [docs/RESEARCH-NOTES.md](../docs/RESEARCH-NOTES.md) for the ho
 validation-based weight selection is itself uninformative for this class (the val window recreates
 the same zero-overlap problem one level down between train and validation).
 
+## Stage 4 (`improve_legacy4.py`) — monotonic Elevation constraint on the Krummholz binary
+
+Krummholz's defining problem is extrapolation, not imbalance: its 103 training rows all sit at
+2868-3128m while every test row sits at >=3129m. A monotonic constraint targets that directly —
+Krummholz is ecologically an above-treeline cover type, so "higher Elevation must not *decrease*
+P(Krummholz)" is a defensible domain constraint, and it gives the model a defined behaviour
+beyond its training range instead of flat extrapolation. Implemented with sklearn
+`HistGradientBoostingClassifier(monotonic_cst=...)`, +1 on Elevation only, over stage 3's same
+weight sweep.
+
+| Weight | Recall (unconstrained) | Recall (monotone) | Precision (uncon.) | Precision (mono.) | F1 (uncon.) | F1 (mono.) |
+|---|---|---|---|---|---|---|
+| 1 | 0.0655 | 0.0987 | 0.3104 | 0.3361 | 0.1081 | 0.1526 |
+| 5 | 0.0155 | 0.0212 | 0.2360 | 0.1595 | 0.0291 | 0.0375 |
+| **20** | **0.1349** | **0.1490** | **0.4511** | **0.3771** | **0.2077** | **0.2136** |
+| 100 | 0.0005 | 0.0040 | 0.5882 | 0.7714 | 0.0010 | 0.0079 |
+| 300 | 0.0005 | 0.0024 | 0.6471 | 0.6447 | 0.0011 | 0.0048 |
+| 564 | 0.0017 | 0.0037 | 0.6296 | 0.6881 | 0.0033 | 0.0073 |
+| 1000 | 0.0021 | 0.0025 | 0.5385 | 0.5909 | 0.0041 | 0.0051 |
+
+![Krummholz monotonic vs unconstrained sweep](figures/covertype_krummholz_monotonic_pr_curve.png)
+
+Recall improves at **all 7 weights** — a consistent directional effect, not noise. At w=20 (the
+best operating point for both variants) recall goes 0.1349 → **0.1490** (+10.5% relative) and F1
+0.2077 → 0.2136 (+2.8%), at a real precision cost (0.4511 → 0.3771, −16.4%). The large relative
+gains at weights ≥100 are not practically meaningful — both variants are already collapsed to
+<1% recall there.
+
+Grounding caveat: Koklev 2026 ([arXiv:2512.17945](https://arxiv.org/abs/2512.17945)) supplied the
+*mechanism* and the constraint-selection protocol, but all five of its datasets are binary
+credit-PD problems — it never tests elevation extrapolation or Covertype. The effect above was
+measured here, not inherited from the citation.
+
+## Stage 5 (`improve_legacy4.py`) — capacity sweep, and a silent early-stopping defect
+
+Stage 1 tuned only `max_depth`, leaving `max_iter` and `learning_rate` untouched. Sweeping them
+surfaced something more important than either: **sklearn auto-enables early stopping above 10,000
+samples**, so on this 345,701-row training window a model asked for `max_iter=600` actually trains
+**57 iterations** (verified via `n_iter_`; 7.3s vs 62.8s wall for the same nominal setting). Every
+prior Covertype stage — the deployed trainer and stage 1's sweep included — was silently capped at
+~57 rounds. Worse for this protocol specifically, early stopping picks its cutoff on an internal
+**random** validation subset, drawn from the same elevation band as training, so it is blind to the
+shifted window whose capacity it is implicitly setting.
+
+Three conditions, each isolating one variable:
+
+| Condition | Split | Weighting | Test accuracy | Test macro-F1 |
+|---|---|---|---|---|
+| Deployed protocol | Elevation-ordered | balanced | 0.6510 | **0.4095** |
+| Control (split isolated) | Random | balanced | **0.9241** | **0.9113** |
+| Control (weighting isolated) | Random | none | 0.8372 | 0.7649 |
+
+**The trainer is competent; the protocol is the cost.** On a conventional random split this same
+code reaches **92.4% accuracy**, within ~2-3 pp of the ~94-95.5% modern published Covertype
+baselines. The elevation-ordered split costs **27.3 pp of accuracy** (0.924 → 0.651) with weighting
+held constant. For external corroboration that this magnitude is expected on this dataset,
+[arXiv:2601.00908](https://arxiv.org/abs/2601.00908) reports Covertype collapsing **81.8 pp** under
+a distribution-shift split across 10/10 seeds while 6 other datasets stayed robust — though their
+shift is *wilderness-area* based, not elevation-ordered, so it corroborates the magnitude without
+being the identical protocol.
+
+Disabling early stopping lifted elevation-split **validation** macro-F1 0.3034 → 0.4535, but test
+macro-F1 only 0.4051 → **0.4095**. That gap is the honest result: the validation gain did not
+transfer to the shifted test set.
+
+Two caveats worth stating rather than burying: the two control rows ran a **single untuned config**
+(`lr=0.1`) while the elevation condition found `lr=0.05` markedly better, so the
+balanced-vs-unweighted comparison is confounded with tuning depth and is not a clean result.
+
+## Stage 6 (`improve_current.py`) — the three libraries the monotonicity paper actually benchmarks
+
+Stage 4 cited a paper benchmarking **XGBoost, LightGBM and CatBoost** but implemented its
+constraint in sklearn's HGB — which is none of them. Across every prior stage this project had only
+ever used `HistGradientBoostingClassifier` and `BalancedRandomForestClassifier`. Stage 6 closes
+that gap: same Krummholz binary task, same elevation split, same `scale_pos_weight=20`, identical
+`n_estimators`/`max_depth`/`learning_rate`/seed across all three libraries (the paper's own
+"comparable base configurations" protocol), scored with the paper's own Price of Monotonicity
+(PoM = (uncon − mono)/uncon × 100; positive = cost, negative = benefit).
+
+| Library | Recall (uncon.) | Recall (mono.) | Precision (uncon.) | Precision (mono.) | Recall PoM |
+|---|---|---|---|---|---|
+| sklearn HGB (stage 4 reference) | 0.1349 | **0.1490** | 0.4511 | 0.3771 | −10.5% |
+| XGBoost 3.4.1 | 0.0025 | 0.0018 | 0.7286 | 0.6429 | +29.4% |
+| LightGBM 4.7.0 | 0.0033 | 0.0528 | 0.1511 | 0.0820 | −1483.8% |
+| CatBoost 1.2.10 | 0.0204 | 0.0110 | 0.8761 | 0.8682 | +46.3% |
+
+**All three lost to sklearn.** The best library result (LightGBM monotone, 0.0528 recall) is still
+2.8× worse than sklearn's 0.1490. The likely mechanism is the stage-5 discovery in reverse: these
+libraries do not early-stop without an `eval_set`, so they trained all 600 rounds, while sklearn
+HGB silently stopped near 57 — and **under covariate shift that accidental underfitting was
+protective**, since more capacity means a tighter fit to the low-elevation training band and worse
+extrapolation to the high-elevation test window. It is the same effect stage 5 saw when its
+validation gains failed to reach the test set.
+
+Two honest reads on the PoM column: the paper's headline library claim (CatBoost carries the
+lowest cost, sometimes a negative PoM i.e. a benefit) **did not reproduce here** — CatBoost showed
+the largest recall cost of the three. And LightGBM's −1483% is arithmetic on a 0.0033 base; it is
+noise at that scale, not a benefit worth claiming.
+
+## Hardware and reproduction cost
+
+Every Covertype stage runs on CPU only — no GPU is used or needed.
+
+| Stage | Where it ran | Hardware | Wall time |
+|---|---|---|---|
+| Stages 1-3 | Local | CPU | minutes |
+| Stage 4 (monotonic sweep) | Modal sandbox | 8 vCPU, no GPU | ~4 min |
+| Stage 5 (capacity, 3 conditions) | Modal sandbox | 16 vCPU, no GPU | ~8 min (14 fits) |
+| Stage 6 (3 libraries × 2 constraints) | Modal sandbox | 16 vCPU, no GPU | ~80 s (6 fits) |
+
+Measured parallel efficiency on the 16-vCPU sandbox: **15.5 effective cores** (62.8 s wall vs
+971.3 s CPU time on a 600-iteration fit), i.e. `OMP_NUM_THREADS` correctly bounded to the
+allocation. A single full-capacity fit on the 345,701-row training window is ~63 s at 16 cores.
+Raw per-stage result JSON: [`covertype_stats/`](covertype_stats/).
+
 ## EuroSAT: CNN reproduction, attention fusion, and in-training diagnostics
 
 Replaces the question "can a CNN beat the deployed PCA(50)+LogisticRegression EuroSAT classifier"
@@ -190,5 +305,7 @@ rather than committed into git history (no LFS in this repo; keeps the tree lean
 | Fraud AUPRC | Class weighting + tuning (+84% relative) | — |
 | Fraud calibration | — | Class weighting (47x worse ECE, a real cost of the AUPRC gain) |
 | Covertype aggregate macro-F1 | Class weighting + tuning (+43% relative) | — |
-| Covertype Krummholz recall specifically | Binary reduction + swept weight (+680% relative) | Multiclass class weighting (made it worse); ensemble resampling alone (smaller gain); `class_weight="balanced"` as a single heuristic (one of the worst points in the sweep) |
+| Covertype Krummholz recall specifically | Binary reduction + swept weight (+680% relative); then a monotonic Elevation constraint on top (+10.5% more, 0.1349 → 0.1490) | Multiclass class weighting (made it worse); ensemble resampling alone (smaller gain); `class_weight="balanced"` as a single heuristic (one of the worst points in the sweep); **XGBoost/LightGBM/CatBoost (all three lost to sklearn HGB, best being 2.8x worse)** |
+| Covertype aggregate under shift | Disabling sklearn's silent auto early-stopping (57 → 600 real iterations) lifted validation macro-F1 0.3034 → 0.4535 | That validation gain barely reached the test set (0.4051 → 0.4095) — under covariate shift, extra capacity mostly fit the training elevation band |
+| Knowing whether the model was the problem at all | A random-split control: the same code scores 0.9241 accuracy, near the ~94-95.5% published baselines, proving the trainer is competent and the 27.3 pp gap is the protocol | Assuming the low number meant an undertrained model — it did not |
 | EuroSAT test macro-F1 | A CNN at all (+139% relative, baseline CNN vs. deployed PCA+LogReg) | The more complex attention architecture, at only 17 epochs (0.5522, below the simpler baseline — needs a longer run, not a re-architecture) |

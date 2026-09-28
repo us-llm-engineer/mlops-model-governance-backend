@@ -122,6 +122,8 @@ every figure: [legacy/README.md](legacy/README.md). Most recent results only, be
 | Fraud | `class_weight="balanced"` + validated depth | Test AUPRC | 0.3920 | **0.7203** (+84%, at a real calibration cost — see legacy/) |
 | Covertype | `class_weight="balanced"` + validated depth (10) | Test macro-F1 | 0.2822 | **0.4051** (+43.6%) |
 | Covertype | Binary Krummholz-vs-rest + swept class weight (w=20) | Krummholz recall | 0.0173 | **0.1349** (+680%, a separate experiment — the two Covertype rows are not sequential, see legacy/) |
+| Covertype | Monotonic Elevation constraint on top of that binary reduction | Krummholz recall | 0.1349 | **0.1490** (+10.5%, at a real precision cost 0.4511 → 0.3771 — see legacy/) |
+| Covertype | Random-split **control** (diagnostic, not a pipeline change) | Test accuracy | 0.6510 (elevation-split) | **0.9241** (random split — the deployed protocol's 27.3 pp cost, not an improvement to it) |
 | EuroSAT | Baseline CNN vs. deployed PCA(50)+LogReg | Test macro-F1 | 0.3989 | **0.9536** (+139%, well-converged, 30 epochs) |
 | EuroSAT | Balanced-attention CNN (CoordAttn+SE), 17 epochs | Test macro-F1 | 0.3989 | 0.5522 (under-converged — reported as-is, currently *below* the simpler baseline CNN above, not cherry-picked) |
 
@@ -134,6 +136,12 @@ every figure: [legacy/README.md](legacy/README.md). Most recent results only, be
 Covertype's honest train/test gap is the point of that scenario: an elevation-ordered split is a
 genuine, severe distribution shift (see the figure below), and the policy layer correctly denies
 promotion on the real number rather than a flattering one.
+
+**Hardware used (Covertype experiments):** CPU only, no GPU. Stages 4-6 ran on Modal sandboxes at
+8-16 vCPU; the largest sweep is ~8 min of wall time and a single full-capacity 600-iteration fit on
+the 345,701-row training window is ~63 s at 16 cores (measured 15.5 effective cores, i.e. 97%
+parallel efficiency). Per-stage timings, raw result JSON, and the full benchmark tables:
+[legacy/README.md](legacy/README.md) and [legacy/covertype_stats/](legacy/covertype_stats/).
 
 **Hardware used (EuroSAT CNN training):** NVIDIA Tesla T4 and NVIDIA L4, both via Google Colab —
 no local CUDA available in this environment. The final 17-epoch attention-model run measured 247s

@@ -201,6 +201,46 @@ Hardware: NVIDIA Tesla T4 and NVIDIA L4, both via Google Colab (free/pay-as-you-
 no local CUDA available in this environment). The attention model's final 17-epoch run measured
 247s (4.1 min) training + 9.4s BatchNorm recalibration on an L4.
 
+## Covertype stages 4-6: monotonic constraints, a silent capacity cap, and a failed library swap
+
+Three further Covertype experiments, prompted by the observation that its test macro-F1 (0.4051)
+sits far below the ~94-95.5% accuracy modern published Covertype baselines report. Full tables and
+per-stage timings: [legacy/README.md](../legacy/README.md).
+
+- **Koklev (2026), *What's the Price of Monotonicity?*
+  ([arXiv:2512.17945](https://arxiv.org/abs/2512.17945))** — benchmarks monotone-constrained
+  gradient boosting across five credit-PD datasets and three libraries, defining a Price of
+  Monotonicity (relative metric change vs. an unconstrained twin) and reporting that costs are
+  often negligible when few features are constrained, with CatBoost carrying the lowest cost and
+  occasionally a negative one. It supplied the *mechanism* and the constraint-selection protocol
+  ("constrain only features with a clear, defensible directional relationship") for stage 4's
+  monotonic Elevation constraint, which lifted Krummholz recall 0.1349 → 0.1490 (+10.5%) at a real
+  precision cost. What it did **not** supply is a result: all five of its datasets are binary
+  credit-PD problems and it never tests elevation extrapolation, Covertype, or multiclass — its own
+  future-work section says so. Stage 6 then ran its three actual libraries on this problem and the
+  headline library claim **did not reproduce**: CatBoost showed the largest recall cost of the
+  three, and all three lost to sklearn's HGB by a wide margin (best library 0.0528 recall vs
+  sklearn's 0.1490).
+- **[arXiv:2601.00908](https://arxiv.org/abs/2601.00908)** — reports Covertype collapsing **81.8
+  percentage points** in accuracy under a distribution-shift split across 10/10 seeds, while six
+  other datasets stayed robust. Useful external corroboration that a large drop is *expected* on
+  this dataset under shift rather than evidence of a broken model — with the honest caveat that
+  their shift is wilderness-area based, not the elevation-ordered protocol used here.
+
+**The measurement that mattered more than either citation.** Sweeping capacity revealed that
+sklearn auto-enables early stopping above 10,000 samples, so a model configured for `max_iter=600`
+actually trained **57 iterations** on this 345,701-row window. Every earlier Covertype stage
+inherited that cap, and stage 1's `max_depth` sweep was tuning against an invisible ceiling. The
+cutoff is chosen on an internal *random* validation subset — drawn from the same elevation band as
+training, and therefore blind to the shifted window it is implicitly sizing capacity for.
+
+**And the control that settled the original question.** Running the same code on a conventional
+random split reaches **0.9241 accuracy**, within ~2-3 pp of the published baselines. The trainer is
+competent; the elevation-ordered protocol costs 27.3 pp of accuracy on its own. Disabling early
+stopping lifted elevation-split *validation* macro-F1 0.3034 → 0.4535 but test macro-F1 only
+0.4051 → 0.4095 — and stage 6 suggests why: under covariate shift the accidental underfitting was
+protective, since libraries that trained all 600 rounds extrapolated *worse*, not better.
+
 ## What has no published answer
 
 No paper read for this pipeline gives a promotion-refusal threshold for any specific metric —

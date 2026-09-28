@@ -1,0 +1,68 @@
+{
+  "name": "covertype-krummholz-gbdt-libraries",
+  "weight": 20,
+  "n_estimators": 600,
+  "max_depth": 8,
+  "learning_rate": 0.1,
+  "n_train": 406708,
+  "n_test": 174304,
+  "libraries": {
+    "xgboost": {
+      "unconstrained": {
+        "precision": 0.7285714285714285,
+        "recall": 0.002499142451119714,
+        "f1": 0.0049811984177369735,
+        "fit_seconds": 5.1
+      },
+      "monotone": {
+        "precision": 0.6428571428571429,
+        "recall": 0.0017641005537315628,
+        "f1": 0.0035185456677906467,
+        "fit_seconds": 2.4
+      },
+      "price_of_monotonicity_pct": {
+        "precision": 11.76,
+        "recall": 29.41,
+        "f1": 29.36
+      }
+    },
+    "lightgbm": {
+      "unconstrained": {
+        "precision": 0.1511111111111111,
+        "recall": 0.003332189934826285,
+        "f1": 0.006520592606798677,
+        "fit_seconds": 1.0
+      },
+      "monotone": {
+        "precision": 0.08203214258511692,
+        "recall": 0.05277600823246925,
+        "f1": 0.06422948473282443,
+        "fit_seconds": 0.9
+      },
+      "price_of_monotonicity_pct": {
+        "precision": 45.71,
+        "recall": -1483.82,
+        "f1": -885.03
+      }
+    },
+    "catboost": {
+      "unconstrained": {
+        "precision": 0.8760504201680672,
+        "recall": 0.020434164747390602,
+        "f1": 0.03993679069099267,
+        "fit_seconds": 17.7
+      },
+      "monotone": {
+        "precision": 0.8682170542635659,
+        "recall": 0.010976625667663057,
+        "f1": 0.021679167674812486,
+        "fit_seconds": 52.4
+      },
+      "price_of_monotonicity_pct": {
+        "precision": 0.89,
+        "recall": 46.28,
+        "f1": 45.72
+      }
+    }
+  }
+}

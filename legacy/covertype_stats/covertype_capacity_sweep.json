@@ -1,0 +1,154 @@
+{
+  "elevation_split_balanced": {
+    "name": "covertype-capacity-elevation-balanced",
+    "random_split": false,
+    "class_weight": "balanced",
+    "grid": [
+      {
+        "max_iter": 100,
+        "learning_rate": 0.1,
+        "early_stopping": "auto",
+        "actual_n_iter": 57,
+        "val_macro_f1": 0.3034376103727713
+      },
+      {
+        "max_iter": 100,
+        "learning_rate": 0.1,
+        "early_stopping": false,
+        "actual_n_iter": 100,
+        "val_macro_f1": 0.4042084358780138
+      },
+      {
+        "max_iter": 100,
+        "learning_rate": 0.05,
+        "early_stopping": "auto",
+        "actual_n_iter": 100,
+        "val_macro_f1": 0.29448857718790755
+      },
+      {
+        "max_iter": 100,
+        "learning_rate": 0.05,
+        "early_stopping": false,
+        "actual_n_iter": 100,
+        "val_macro_f1": 0.2976475670288151
+      },
+      {
+        "max_iter": 300,
+        "learning_rate": 0.1,
+        "early_stopping": "auto",
+        "actual_n_iter": 57,
+        "val_macro_f1": 0.3034376103727713
+      },
+      {
+        "max_iter": 300,
+        "learning_rate": 0.1,
+        "early_stopping": false,
+        "actual_n_iter": 300,
+        "val_macro_f1": 0.45097424821708154
+      },
+      {
+        "max_iter": 300,
+        "learning_rate": 0.05,
+        "early_stopping": "auto",
+        "actual_n_iter": 113,
+        "val_macro_f1": 0.2981370086408515
+      },
+      {
+        "max_iter": 300,
+        "learning_rate": 0.05,
+        "early_stopping": false,
+        "actual_n_iter": 300,
+        "val_macro_f1": 0.4281286810415709
+      },
+      {
+        "max_iter": 600,
+        "learning_rate": 0.1,
+        "early_stopping": "auto",
+        "actual_n_iter": 57,
+        "val_macro_f1": 0.3034376103727713
+      },
+      {
+        "max_iter": 600,
+        "learning_rate": 0.1,
+        "early_stopping": false,
+        "actual_n_iter": 600,
+        "val_macro_f1": 0.3518257003188193
+      },
+      {
+        "max_iter": 600,
+        "learning_rate": 0.05,
+        "early_stopping": "auto",
+        "actual_n_iter": 113,
+        "val_macro_f1": 0.2981370086408515
+      },
+      {
+        "max_iter": 600,
+        "learning_rate": 0.05,
+        "early_stopping": false,
+        "actual_n_iter": 600,
+        "val_macro_f1": 0.4535362940141539
+      }
+    ],
+    "best_max_iter": 600,
+    "best_learning_rate": 0.05,
+    "best_early_stopping": false,
+    "final_actual_n_iter": 600,
+    "best_val_macro_f1": 0.4535362940141539,
+    "train_macro_f1": 0.9020911029357678,
+    "train_accuracy": 0.884403552425819,
+    "test_macro_f1": 0.4095197150369126,
+    "test_accuracy": 0.6510464475858271,
+    "n_train": 406708,
+    "n_test": 174304
+  },
+  "random_split_balanced_control": {
+    "name": "covertype-capacity-random-balanced",
+    "random_split": true,
+    "class_weight": "balanced",
+    "grid": [
+      {
+        "max_iter": 600,
+        "learning_rate": 0.1,
+        "early_stopping": false,
+        "actual_n_iter": 600,
+        "val_macro_f1": 0.9108643976599876
+      }
+    ],
+    "best_max_iter": 600,
+    "best_learning_rate": 0.1,
+    "best_early_stopping": false,
+    "final_actual_n_iter": 600,
+    "best_val_macro_f1": 0.9108643976599876,
+    "train_macro_f1": 0.956745011775045,
+    "train_accuracy": 0.943170530208405,
+    "test_macro_f1": 0.9112763765026124,
+    "test_accuracy": 0.924144024233523,
+    "n_train": 406708,
+    "n_test": 174304
+  },
+  "random_split_unweighted_control": {
+    "name": "covertype-capacity-random-unweighted",
+    "random_split": true,
+    "class_weight": null,
+    "grid": [
+      {
+        "max_iter": 600,
+        "learning_rate": 0.1,
+        "early_stopping": false,
+        "actual_n_iter": 600,
+        "val_macro_f1": 0.7779923326376396
+      }
+    ],
+    "best_max_iter": 600,
+    "best_learning_rate": 0.1,
+    "best_early_stopping": false,
+    "final_actual_n_iter": 600,
+    "best_val_macro_f1": 0.7779923326376396,
+    "train_macro_f1": 0.7964593586615684,
+    "train_accuracy": 0.8448887162288423,
+    "test_macro_f1": 0.7649440805077806,
+    "test_accuracy": 0.8371695428676336,
+    "n_train": 406708,
+    "n_test": 174304
+  }
+}

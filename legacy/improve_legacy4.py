@@ -497,108 +497,6 @@ def train_covertype_capacity_sweep(df: pd.DataFrame, split_frac: float = 0.7, va
     }
 
 
-def train_covertype_krummholz_gbdt_libraries(df: pd.DataFrame, split_frac: float = 0.7,
-                                               seed: int = 0, weight: int = 20,
-                                               n_estimators: int = 600, max_depth: int = 8,
-                                               learning_rate: float = 0.1) -> dict:
-    """Stage 6: runs the Krummholz-vs-rest binary task on the three GBDT libraries the monotonicity
-    paper (Koklev 2026, arXiv:2512.17945) actually benchmarks -- XGBoost, LightGBM, CatBoost --
-    constrained and unconstrained, and scores them with that paper's own Price of Monotonicity
-    (PoM) metric.
-
-    Why this exists: stage 4 cited that paper as grounding for a monotonic Elevation constraint but
-    implemented it in sklearn's HistGradientBoostingClassifier, which is NOT one of the three
-    libraries the paper measured -- and every Covertype stage before this one used only sklearn
-    (HistGradientBoostingClassifier / BalancedRandomForestClassifier, verified by grep across all
-    legacy snapshots). So the citation was to a three-library benchmark none of whose libraries had
-    ever been run here. The paper's own headline library-level result is that CatBoost carries the
-    smallest cost (mean AUC PoM 0.6% vs 0.9% for XGBoost/LightGBM) and sometimes a negative PoM,
-    i.e. a benefit -- a claim that is only testable by running the libraries themselves.
-
-    PoM follows the paper's definition for higher-is-better metrics:
-    PoM = (metric_unconstrained - metric_monotone) / metric_unconstrained * 100, so a POSITIVE PoM
-    is a cost and a NEGATIVE PoM is a benefit from the constraint.
-
-    Held fixed across all three libraries (the paper's own "base configurations kept comparable"
-    protocol): same elevation-ordered split, same binary target, same scale_pos_weight=20 (stage
-    3's established best operating point), same n_estimators/max_depth/learning_rate, same seed,
-    and a +1 monotone constraint on Elevation only. Note these libraries do not early-stop unless
-    given an eval_set, so unlike sklearn's HGB (which silently capped training at 57 iterations,
-    see train_covertype_capacity_sweep) they actually train the requested n_estimators rounds."""
-    df = df.sort_values("Elevation", kind="stable").reset_index(drop=True)
-    features = [c for c in df.columns if c != "Cover_Type"]
-    elevation_idx = features.index("Elevation")
-    constraint = [1 if i == elevation_idx else 0 for i in range(len(features))]
-
-    cut = int(len(df) * split_frac)
-    train, test = df.iloc[:cut], df.iloc[cut:]
-    X_train, X_test = train[features], test[features]
-    y_train = (train["Cover_Type"] == 7).astype(int)
-    y_test = (test["Cover_Type"] == 7).astype(int)
-
-    def _metrics(y_pred):
-        rep = classification_report(y_test, y_pred, output_dict=True, zero_division=0, labels=[0, 1])
-        return {"precision": rep["1"]["precision"], "recall": rep["1"]["recall"],
-                "f1": rep["1"]["f1-score"]}
-
-    def _build(lib: str, monotone: bool):
-        if lib == "xgboost":
-            from xgboost import XGBClassifier
-            kw = {"monotone_constraints": tuple(constraint)} if monotone else {}
-            return XGBClassifier(n_estimators=n_estimators, max_depth=max_depth,
-                                  learning_rate=learning_rate, scale_pos_weight=weight,
-                                  random_state=seed, n_jobs=-1, tree_method="hist",
-                                  eval_metric="logloss", **kw)
-        if lib == "lightgbm":
-            from lightgbm import LGBMClassifier
-            kw = {"monotone_constraints": constraint} if monotone else {}
-            return LGBMClassifier(n_estimators=n_estimators, max_depth=max_depth,
-                                   learning_rate=learning_rate, scale_pos_weight=weight,
-                                   random_state=seed, n_jobs=-1, verbose=-1, **kw)
-        from catboost import CatBoostClassifier
-        kw = {"monotone_constraints": constraint} if monotone else {}
-        return CatBoostClassifier(iterations=n_estimators, depth=max_depth,
-                                   learning_rate=learning_rate, scale_pos_weight=weight,
-                                   random_seed=seed, verbose=0, **kw)
-
-    results = {}
-    for lib in ("xgboost", "lightgbm", "catboost"):
-        entry = {}
-        for monotone in (False, True):
-            key = "monotone" if monotone else "unconstrained"
-            t0 = time.time()
-            try:
-                clf = _build(lib, monotone)
-                clf.fit(X_train, y_train)
-                entry[key] = {**_metrics(clf.predict(X_test)),
-                              "fit_seconds": round(time.time() - t0, 1)}
-            except Exception as e:  # a missing library must not abort the other two
-                entry[key] = {"error": f"{type(e).__name__}: {e}"}
-        if "error" not in entry["unconstrained"] and "error" not in entry["monotone"]:
-            entry["price_of_monotonicity_pct"] = {
-                m: round((entry["unconstrained"][m] - entry["monotone"][m])
-                          / entry["unconstrained"][m] * 100, 2)
-                if entry["unconstrained"][m] else None
-                for m in ("precision", "recall", "f1")
-            }
-        results[lib] = entry
-
-    return {"name": "covertype-krummholz-gbdt-libraries", "weight": weight,
-            "n_estimators": n_estimators, "max_depth": max_depth,
-            "learning_rate": learning_rate, "n_train": len(train), "n_test": len(test),
-            "libraries": results}
-
-
-def compare_covertype_krummholz_gbdt_libraries(data_dir: Path, out_dir: Path) -> dict:
-    """Stage 6 driver: writes the three-library constrained/unconstrained comparison plus each
-    library's Price of Monotonicity to JSON. No plotting -- the result is a small table."""
-    df = pd.read_parquet(data_dir / "datasets" / "covertype" / "covertype.parquet")
-    result = train_covertype_krummholz_gbdt_libraries(df)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    (out_dir / "covertype_gbdt_libraries.json").write_text(json.dumps(result, indent=2, default=str))
-    return result
-
-
 def compare_covertype_capacity(data_dir: Path, out_dir: Path) -> dict:
     """Stage 5 driver: three conditions, designed so each pairwise comparison isolates exactly one
     variable rather than confounding two at once.
@@ -664,11 +562,6 @@ def main():
         summary["covertype_krummholz_monotonic"] = compare_covertype_krummholz_binary_monotonic(data_dir, out_dir)
         summary["covertype_krummholz_monotonic_seconds"] = round(time.time() - t0, 2)
         print("covertype_krummholz_monotonic:", json.dumps(summary["covertype_krummholz_monotonic"], indent=2))
-    if "covertype-gbdt-libraries" in a.only:
-        t0 = time.time()
-        summary["covertype_gbdt_libraries"] = compare_covertype_krummholz_gbdt_libraries(data_dir, out_dir)
-        summary["covertype_gbdt_libraries_seconds"] = round(time.time() - t0, 2)
-        print("covertype_gbdt_libraries:", json.dumps(summary["covertype_gbdt_libraries"], indent=2))
     if "covertype-capacity" in a.only:
         t0 = time.time()
         summary["covertype_capacity"] = compare_covertype_capacity(data_dir, out_dir)
