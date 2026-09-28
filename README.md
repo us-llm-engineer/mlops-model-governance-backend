@@ -119,12 +119,13 @@ only, below:
 
 | Dataset | What changed | Metric | Before | After |
 |---|---|---|---|---|
-| Fraud | `class_weight="balanced"` + validated depth | Test AUPRC | 0.3920 | **0.7204** (+84%, at a real calibration cost — see legacy/) |
-| Covertype | Binary Krummholz-vs-rest + swept class weight (w=20) | Krummholz recall | 0.0173 | **0.1349** (+680%) |
+| Fraud | `class_weight="balanced"` + validated depth | Test AUPRC | 0.3920 | **0.7203** (+84%, at a real calibration cost — see legacy/) |
+| Covertype | `class_weight="balanced"` + validated depth (10) | Test macro-F1 | 0.2822 | **0.4051** (+43.6%) |
+| Covertype | Binary Krummholz-vs-rest + swept class weight (w=20) | Krummholz recall | 0.0173 | **0.1349** (+680%, a separate experiment — the two Covertype rows are not sequential, see legacy/) |
 
 | | |
 |---|---|
-| ![Improvement summary: before vs after](docs/figures/improvement_summary.png)<br><sub>Both headline improvements side by side — fraud's AUPRC gain and covertype's Krummholz-recall gain, each roughly doubling to nearly 8x its baseline.</sub> | ![Krummholz precision/recall sweep over class weight](docs/figures/covertype_krummholz_pr_curve.png)<br><sub>Binary Krummholz-vs-rest classifier, class weight swept 1-1000. `class_weight="balanced"`'s own implied ratio (~564) lands at one of the *worst* points on this curve — the actual optimum (w=20) is only visible by sweeping.</sub> |
+| ![Improvement summary: before vs after](docs/figures/improvement_summary.png)<br><sub>All three headline improvements side by side — fraud's AUPRC gain, covertype's aggregate macro-F1 gain, and covertype's Krummholz-recall gain (the latter two are separate, non-sequential experiments).</sub> | ![Krummholz precision/recall sweep over class weight](docs/figures/covertype_krummholz_pr_curve.png)<br><sub>Binary Krummholz-vs-rest classifier, class weight swept 1-1000. `class_weight="balanced"`'s own implied ratio (~564) lands at one of the *worst* points on this curve — the actual optimum (w=20) is only visible by sweeping.</sub> |
 | ![Fraud calibration after tuning](docs/figures/fraud_tuned_calibration.png)<br><sub>Fraud's calibration curve after the AUPRC-improving retune — ECE rose from 0.0019 to 0.0896, the real cost of the discrimination gain above.</sub> | |
 
 Covertype's honest train/test gap is the point of that scenario: an elevation-ordered split is a
@@ -133,8 +134,9 @@ promotion on the real number rather than a flattering one.
 
 ### Figures
 
-One data-understanding chart and one post-training diagnostic per dataset — the full run also
-produces per-class metrics, permutation importance, and training curves for every model (see
+One data-understanding chart and one post-training diagnostic per dataset (12 figures in the table
+below), plus the 3 improvement-experiment figures above — the full run also produces per-class
+metrics, permutation importance, and training curves for every model (see
 `docs/RESEARCH-NOTES.md` and `live_tests/stats.py`).
 
 | | |

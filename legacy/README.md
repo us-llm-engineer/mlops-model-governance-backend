@@ -15,7 +15,7 @@ train/validation/test, validation carved from the end of the train window only).
 
 | Metric | Baseline | Tuned |
 |---|---|---|
-| Test AUPRC | 0.3920 | **0.7204** |
+| Test AUPRC | 0.3920 | **0.7203** |
 | ECE | 0.0019 | 0.0896 (47x worse) |
 | Brier score | 0.0012 | 0.0096 (8x worse) |
 
@@ -72,22 +72,41 @@ choice.
 
 | Weight | HGB recall | HGB precision | HGB F1 |
 |---|---|---|---|
-| 1 | 0.066 | 0.310 | 0.108 |
+| 1 | 0.065 | 0.310 | 0.108 |
+| 5 | 0.015 | 0.236 | 0.029 |
 | **20** | **0.135** | **0.451** | **0.208** |
 | 100 | 0.0005 | 0.588 | 0.001 |
+| 300 | 0.001 | 0.647 | 0.001 |
 | 564 (`class_weight="balanced"`'s own ratio) | 0.0017 | 0.630 | 0.003 |
-| 1000 | 0.0021 | 0.539 | 0.004 |
+| 1000 | 0.0021 | 0.538 | 0.004 |
+
+The same sweep, run against `BalancedRandomForestClassifier` (stage 2's bagging/undersampling
+mechanism) instead of `HistGradientBoosting`, on the same binary Krummholz-vs-rest reduction:
+
+| Weight | BalancedRF recall | BalancedRF precision | BalancedRF F1 |
+|---|---|---|---|
+| **1** | **0.083** | 0.434 | 0.139 |
+| 5 | 0.053 | 0.796 | 0.100 |
+| 20 | 0.020 | 0.930 | 0.038 |
+| 100 | 0.006 | 0.962 | 0.012 |
+| 300 | 0.004 | 1.000 | 0.008 |
+| 564 | 0.001 | 1.000 | 0.003 |
+| 1000 | 0.002 | 1.000 | 0.004 |
 
 ![Krummholz precision/recall sweep](figures/covertype_krummholz_pr_curve.png)
 
 **The best Krummholz result across every method tried** — 7.8x the baseline recall — found only
 by sweeping the weight parameter rather than using `class_weight="balanced"` directly, which lands
-at one of the *worst* points in the same sweep. Full sweep data (both `HistGradientBoosting` and
-`BalancedRandomForest`, 7 weights each, val + test splits): `../krummholz_binary_sweep.json` is not
-included here (raw JSON, not curated); see [docs/RESEARCH-NOTES.md](../docs/RESEARCH-NOTES.md) for
-the complete numeric table and the honest caveat that validation-based weight selection is itself
-uninformative for this class (the val window recreates the same zero-overlap problem one level
-down between train and validation).
+at one of the *worst* points in the same sweep. That win is specific to the boosting mechanism:
+BalancedRF's own best recall under the same binary reduction (0.083 at w=1) exactly ties its
+*multiclass* ensemble recall already reported in stage 2 (0.0834) — i.e. binary reduction did
+nothing for the bagging/undersampling mechanism, and increasing BalancedRF's weight only drove its
+precision toward 1.000 while collapsing recall toward zero. Capacity concentration via binary
+reduction helped boosting specifically, not resampling-based bagging in general. Full sweep data
+(both families, 7 weights each, val + test splits) is `../krummholz_binary_sweep.json` (raw JSON,
+not curated); see [docs/RESEARCH-NOTES.md](../docs/RESEARCH-NOTES.md) for the honest caveat that
+validation-based weight selection is itself uninformative for this class (the val window recreates
+the same zero-overlap problem one level down between train and validation).
 
 ## Summary: what actually worked
 
