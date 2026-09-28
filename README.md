@@ -103,6 +103,24 @@ Real held-out numbers from the six trainers, gated by the policy layer above on 
 | Covertype (7-class, elevation-split) | macro-F1 | 0.6458 | 0.2822 | 174,304 |
 | EuroSAT (10-class images) | macro-F1 | 0.4318 | 0.3989 | 4,860 |
 
+### Improvement experiments (most recent results)
+
+Two of the six models above (fraud, covertype) were investigated further and improved through a
+history of experiments — hyperparameter tuning, ensemble resampling, and a literature-inspired
+binary reduction with a swept weight parameter. Full history, all intermediate stages, and every
+figure: [legacy/README.md](legacy/README.md). Most recent results only, below:
+
+| Dataset | What changed | Metric | Before | After |
+|---|---|---|---|---|
+| Fraud | `class_weight="balanced"` + validated depth | Test AUPRC | 0.3920 | **0.7204** (+84%, at a real calibration cost — see legacy/) |
+| Covertype | Binary Krummholz-vs-rest + swept class weight (w=20) | Krummholz recall | 0.0173 | **0.1349** (+680%) |
+
+![Krummholz precision/recall sweep over class weight](docs/figures/covertype_krummholz_pr_curve.png)
+<sub>Binary Krummholz-vs-rest classifier, class weight swept 1-1000. `class_weight="balanced"`'s own implied ratio (~564) lands at one of the *worst* points on this curve — the actual optimum (w=20) is only visible by sweeping, not by using the standard heuristic.</sub>
+
+![Fraud calibration after tuning](docs/figures/fraud_tuned_calibration.png)
+<sub>Fraud's calibration curve after the AUPRC-improving retune — ECE rose from 0.0019 to 0.0896, the real cost of the discrimination gain above.</sub>
+
 Covertype's honest train/test gap is the point of that scenario: an elevation-ordered split is a
 genuine, severe distribution shift (see the figure below), and the policy layer correctly denies
 promotion on the real number rather than a flattering one.
