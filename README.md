@@ -90,32 +90,16 @@ motivated (or explicitly does *not* support) are in
   [arXiv:2212.08216](https://arxiv.org/abs/2212.08216) — the saliency technique behind the AG News
   token-saliency chart below.
 
-### Key results
+### Results (most recent, best-performing versions)
 
-Real held-out numbers from the six trainers, gated by the policy layer above on the test column:
-
-| Dataset | Metric | Train | Test | Test rows |
-|---|---|---|---|---|
-| Fraud (binary, 0.17% positive) | AUPRC | 0.7207 | 0.3920¹ | 85,443 |
-| AG News (4-class text) | macro-F1 | 0.9110 | 0.9249 | 3,800 |
-| Taxi tip amount (regression) | MAE | 0.8925 | 0.8875 | 2,051,233 |
-| Jena temperature (regression) | MAE | 2.5219 | 3.1598 | 126,166 |
-| Covertype (7-class, elevation-split) | macro-F1 | 0.6458 | 0.2822¹ | 174,304 |
-| EuroSAT (10-class images) | macro-F1 | 0.4318 | 0.3989 | 4,860 |
-
-¹ These are the **deployed trainer's** numbers (`live_tests/train.py`, unchanged) — the same
-functions the three live-test scenarios and the policy layer above exercise. A separate
-benchmarking investigation (not a change to the deployed trainer) reaches materially better
-numbers for these three specific models — see directly below.
-
-### Improvement experiments (most recent results)
-
-Three of the six models above (fraud, covertype, EuroSAT) were investigated further and improved
+Three of the six models — fraud, covertype, EuroSAT — were investigated further and improved
 through a history of experiments — hyperparameter tuning, ensemble resampling, a
 literature-inspired binary reduction with a swept weight parameter, and (for EuroSAT) a full CNN
 reproduction with in-training and post-training diagnostics. These are separate benchmarking
-trainers, not changes to the deployed pipeline above. Full history, all intermediate stages, and
-every figure: [legacy/README.md](legacy/README.md). Most recent results only, below:
+trainers, not changes to the deployed pipeline (see "Deployed pipeline baseline" below for what
+`live_tests/train.py` actually ships and what the policy layer gates today). Full history, all
+intermediate stages, and every figure: [legacy/README.md](legacy/README.md). Most recent results
+only, below:
 
 | Dataset | What changed | Metric | Before | After |
 |---|---|---|---|---|
@@ -149,6 +133,24 @@ no local CUDA available in this environment. The final 17-epoch attention-model 
 [shared Google Drive folder](https://drive.google.com/drive/folders/1onzEVzL6x5wMEhrklJMoWm7QOW8NssTd?usp=sharing)
 (not committed here — no Git LFS in this repo). Full write-up, both models' code, and raw
 statistics: [legacy/README.md](legacy/README.md).
+
+### Deployed pipeline baseline
+
+What `live_tests/train.py` actually ships today, unchanged, and what the policy layer above gates
+in the three live-test scenarios — the starting point the results above are measured against, not
+a second set of headline numbers:
+
+| Dataset | Metric | Train | Test | Test rows |
+|---|---|---|---|---|
+| Fraud (binary, 0.17% positive) | AUPRC | 0.7207 | 0.3920¹ | 85,443 |
+| AG News (4-class text) | macro-F1 | 0.9110 | 0.9249 | 3,800 |
+| Taxi tip amount (regression) | MAE | 0.8925 | 0.8875 | 2,051,233 |
+| Jena temperature (regression) | MAE | 2.5219 | 3.1598 | 126,166 |
+| Covertype (7-class, elevation-split) | macro-F1 | 0.6458 | 0.2822¹ | 174,304 |
+| EuroSAT (10-class images) | macro-F1 | 0.4318 | 0.3989 | 4,860 |
+
+¹ Fraud and Covertype are the two models improved on above; AG News, Taxi, and Jena are not
+revisited because the deployed trainer's own numbers are already strong on those three.
 
 ### EuroSAT: post-training interpretability
 
