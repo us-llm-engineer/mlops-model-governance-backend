@@ -153,7 +153,7 @@ gets caught live next time instead of only after a separate post-hoc evaluation:
 |---|---|
 | ![Training curves + live train/val gap](figures/eurosat_training_curves.png)<br><sub>Train loss/accuracy climb normally while clean-validation accuracy stays flat — the gap (0.33→0.47) is the BatchNorm mismatch, caught live this time.</sub> | ![Weight trajectory, TensorView style](figures/eurosat_weight_trajectory_3d.png)<br><sub>3 raw weight scalars over ~4,500 steps, colored by time — the trajectory tightens as training converges, not a frozen/diverging path.</sub> |
 
-### Post-training interpretability
+### EuroSAT: post-training interpretability
 
 | | |
 |---|---|
@@ -162,7 +162,7 @@ gets caught live next time instead of only after a separate post-hoc evaluation:
 | ![Grad-CAM, baseline model, classes 1-5](figures/eurosat_gradcam_baseline_part1.png)<br><sub>Grad-CAM, 2 examples per class (AnnualCrop-Industrial). Caveat: 64x64 input gives an 8x8 last-conv feature map, smaller than anything validated in the original Grad-CAM paper (7x14x14 on 224x224) — an honest extrapolation.</sub> | ![Grad-CAM, baseline model, classes 6-10](figures/eurosat_gradcam_baseline_part2.png)<br><sub>Grad-CAM, 2 examples per class (Pasture-SeaLake), same caveat as above.</sub> |
 | ![Occlusion sensitivity, baseline model](figures/eurosat_occlusion_sensitivity.png)<br><sub>Zeiler & Fergus-style causal check — predicted-class probability as a grey patch sweeps the image.</sub> | |
 
-### Dataset understanding (independent of any trained model)
+### EuroSAT: dataset understanding (independent of any trained model)
 
 | | |
 |---|---|

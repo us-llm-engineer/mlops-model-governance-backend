@@ -139,15 +139,32 @@ promotion on the real number rather than a flattering one.
 no local CUDA available in this environment. The final 17-epoch attention-model run measured 247s
 (4.1 min) training + 9.4s BatchNorm recalibration on an L4. All 5 model checkpoints:
 [shared Google Drive folder](https://drive.google.com/drive/folders/1onzEVzL6x5wMEhrklJMoWm7QOW8NssTd?usp=sharing)
-(not committed here — no Git LFS in this repo). Full write-up, both models' code, all 12 figures,
-and raw statistics: [legacy/README.md](legacy/README.md).
+(not committed here — no Git LFS in this repo). Full write-up, both models' code, and raw
+statistics: [legacy/README.md](legacy/README.md).
+
+### EuroSAT: post-training interpretability
+
+| | |
+|---|---|
+| ![Baseline first-layer filters](docs/figures/eurosat_baseline_filters.png)<br><sub>Every learned 3x3 first-conv filter as an RGB patch. Correctly rendered, but a real limitation found by inspection: a 3x3 kernel is too small to show the edge-detector structure Zeiler & Fergus's own diagnostic (built on AlexNet's 11x11 filters) depends on — see RESEARCH-NOTES.md for the full correction.</sub> | ![Baseline weight histograms](docs/figures/eurosat_baseline_weight_hist.png)<br><sub>Per-layer weight distributions — the architecture-appropriate health check for a 3x3-kernel network (no collapsed/saturated layers).</sub> |
+| ![Attention model first-layer filters](docs/figures/eurosat_attn_filters.png)<br><sub>Same visualization, attention model's stem layer.</sub> | ![Attention model weight histograms](docs/figures/eurosat_attn_weight_hist.png)<br><sub>Attention model's per-layer weight distributions, post BN-recalibration.</sub> |
+| ![Grad-CAM, baseline model, classes 1-5](docs/figures/eurosat_gradcam_baseline_part1.png)<br><sub>Grad-CAM, 2 examples per class (AnnualCrop-Industrial). Caveat: 64x64 input gives an 8x8 last-conv feature map, smaller than anything validated in the original Grad-CAM paper (7x14x14 on 224x224) — an honest extrapolation.</sub> | ![Grad-CAM, baseline model, classes 6-10](docs/figures/eurosat_gradcam_baseline_part2.png)<br><sub>Grad-CAM, 2 examples per class (Pasture-SeaLake), same caveat as above.</sub> |
+| ![Occlusion sensitivity, baseline model](docs/figures/eurosat_occlusion_sensitivity.png)<br><sub>Zeiler & Fergus-style causal check — predicted-class probability as a grey patch sweeps the image.</sub> | |
+
+### EuroSAT: dataset understanding (independent of any trained model)
+
+| | |
+|---|---|
+| ![Class prototypes](docs/figures/eurosat_class_prototypes.png)<br><sub>Per-class mean image — the typical visual signature per class, independent of any one example.</sub> | ![Raw-pixel PCA embedding](docs/figures/eurosat_raw_pixel_pca.png)<br><sub>PCA(2) on raw normalized pixels — the same feature representation the deployed PCA+LogReg baseline uses, before any CNN touches the data.</sub> |
+| ![Confused-pair gallery](docs/figures/eurosat_confused_pairs_gallery.png)<br><sub>Top-3 most-confused class pairs on the attention model's confusion matrix (top: Forest/SeaLake, 771 confusions) — differs from the reproduction paper's own most-confused pair, most plausibly an under-convergence artifact given the attention model's macro-F1 (0.55) vs. the baseline's (0.95), reported honestly rather than presented as a literature match.</sub> | |
 
 ### Figures
 
 One data-understanding chart and one post-training diagnostic per dataset (12 figures in the table
-below), plus the 5 improvement-experiment figures above — the full run also produces per-class
-metrics, permutation importance, and training curves for every model (see
-`docs/RESEARCH-NOTES.md` and `live_tests/stats.py`).
+below), plus the 15 improvement-experiment figures above (5 fraud/covertype/EuroSAT-summary
+figures, plus the full EuroSAT post-training-interpretability and dataset-understanding galleries)
+— the full run also produces per-class metrics, permutation importance, and training curves for
+every model (see `docs/RESEARCH-NOTES.md` and `live_tests/stats.py`).
 
 | | |
 |---|---|
